@@ -1,0 +1,59 @@
+name: Deploy RunPod Inference Runner
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'inference/**'
+      - '.github/workflows/deploy-runpod.yml'
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}-inference
+
+jobs:
+  build-and-push-image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./inference
+          file: ./inference/Dockerfile.runpod
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  # Optional deployment step if using RunPod API
+  # deploy-runpod-endpoint:
+  #   needs: build-and-push-image
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Update RunPod Template
+  #       run: |
+  #         # You can use a curl command here targeting the RunPod GraphQL/REST API 
+  #         # to automatically pull the newly pushed container into your active endpoints.
+  #         # Requires secrets.RUNPOD_API_KEY
+  #         echo "RunPod endpoint sync complete (Placeholder)."

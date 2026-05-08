@@ -1,0 +1,25 @@
+FROM runpod/pytorch:2.1.0-py3.10-cuda11.8.0-devel-ubuntu22.04
+
+WORKDIR /
+# Install system packages required for git clone
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+
+# Install python dependencies
+RUN pip install --no-cache-dir \
+    transformers==4.46.0 \
+    peft==0.13.2 \
+    bitsandbytes==0.44.1 \
+    accelerate==1.1.1 \
+    huggingface-hub \
+    sentencepiece \
+    tiktoken \
+    runpod
+
+# Copy our handler script
+COPY runpod_handler.py /runpod_handler.py
+
+# Optional: Add environment variables for HuggingFace Token, to be overridden in RunPod UI.
+# ENV HF_TOKEN="your_token_here"
+
+# The entrypoint expects to run the python script using the runpod serverless SDK.
+CMD ["python", "-u", "/runpod_handler.py"]

@@ -1,0 +1,96 @@
+# ── Secrets ──────────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env.local
+
+# ── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# ── Node / Next.js ───────────────────────────────────────────────────────────
+node_modules/
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# ── Models (multi-GB; never commit) ──────────────────────────────────────────
+*.gguf
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.onnx
+*.ckpt
+
+# ── llama.cpp prebuilt binaries (downloaded, not source) ─────────────────────
+llama-b*/
+llama-fresh/
+llama-latest/
+llama-temp/
+llama-*.exe
+llama-*.zip
+llama-vulkan*.zip
+llama.dll
+ggml*.dll
+mtmd_shared.dll
+libcurl-x64.dll
+rpc-server.exe
+test-*.exe
+*.dll
+
+# ── Logs and one-off outputs ─────────────────────────────────────────────────
+*.log
+*_err.log
+*_out.log
+logs.txt
+modal_*.txt
+modal_crash.txt
+patch_out.txt
+check_out.txt
+fixed_logs.txt
+ui_*.log
+ui_run*.log
+ui_startup.log
+arch_test_*.log
+final*_err.log
+final*_out.log
+test*_err.log
+test*_out.log
+patched_*.log
+qwen35_test_*.log
+kv8_test_*.log
+test_b9066*.log
+test_load*.log
+llama_qwen2_*.log
+test_results.jsonl
+latest_test_results.jsonl
+linenoise.cpp.txt
+llama.cpp.txt
+latest_modal_logs.txt
+
+# ── OS / IDE ─────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*~
+
+# ── Data caches ──────────────────────────────────────────────────────────────
+.cache/
+.huggingface/
+hf_cache/
+embeddings_cache/
+
+# ── Local-only Claude session artifacts ──────────────────────────────────────
+.claude/settings.local.json
