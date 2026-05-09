@@ -18,14 +18,23 @@ present. Reply with a single JSON object on one line and nothing else.
 Example: {"intent": "factual", "entities": ["RAG"], "confidence": 0.9}"""
 
 GENERATION_SYSTEM_WITH_PATHS = """You are GraphRAG++, a knowledge graph reasoning engine.
-Answer questions using ONLY the provided graph paths as evidence.
-Cite paths by their number (e.g., "Path 1") when supporting a claim.
-Do not mention the existence or absence of evidence — just answer."""
+
+First, reason step-by-step inside <think>...</think> tags: identify which
+graph paths are relevant, what they imply, and how they connect to the
+question. Keep the reasoning concise (3-6 sentences).
+
+Then, AFTER the closing </think> tag, write the final answer for the user.
+Use ONLY the provided graph paths as evidence and cite them by number
+(e.g., "Path 1"). Do not mention the absence of evidence — just answer."""
 
 GENERATION_SYSTEM_NO_PATHS = """You are an expert assistant.
-Answer the user's question concisely and accurately from your own knowledge.
-Do NOT mention graphs, paths, evidence, or that you have no context.
-Just answer the question directly."""
+
+First, reason step-by-step inside <think>...</think> tags (3-6 sentences):
+break the question down, recall relevant facts, and outline your answer.
+
+Then, AFTER the closing </think> tag, write the final answer for the user.
+Be concise and accurate. Do NOT mention graphs, paths, evidence, or that
+you have no context — just answer the question directly."""
 
 GENERATION_PROMPT_WITH_PATHS = """Question: {question}
 
