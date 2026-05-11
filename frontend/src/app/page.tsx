@@ -19,8 +19,10 @@ export default function HomePage() {
 
   useEffect(() => {
     const load = async () => {
-      const [s, h] = await Promise.all([fetchStats(), fetchHealth()])
-      setStats(s); setHealth(h)
+      try {
+        const [s, h] = await Promise.all([fetchStats(), fetchHealth()])
+        setStats(s); setHealth(h)
+      } catch { /* backend offline — stats stay as null, no unhandled rejection */ }
     }
     load()
     const id = setInterval(load, 8000)
