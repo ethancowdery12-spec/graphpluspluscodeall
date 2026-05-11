@@ -14,11 +14,20 @@ export default function GraphPage() {
   const [filter, setFilter] = useState<string>('all')
   const [search, setSearch] = useState('')
 
+  const [loadError, setLoadError] = useState<string | null>(null)
+
   const load = useCallback(async () => {
-    const [g, s] = await Promise.all([fetchGraph(), fetchStats()])
-    setData(g)
-    setStats(s)
-    setLoading(false)
+    setLoading(true)
+    setLoadError(null)
+    try {
+      const [g, s] = await Promise.all([fetchGraph(), fetchStats()])
+      setData(g)
+      setStats(s)
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Failed to load graph — is the backend running?')
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -148,6 +157,12 @@ export default function GraphPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', gap: '1rem' }}>
             <div className="spinner" style={{ width: 40, height: 40, borderWidth: 3 }} />
             <p style={{ color: 'var(--text-muted)' }}>Loading knowledge graph…</p>
+          </div>
+        ) : loadError ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', gap: '1rem', padding: '2rem', textAlign: 'center' }}>
+            <div style={{ fontSize: '2rem' }}>⚠️</div>
+            <p style={{ color: 'var(--text-muted)', maxWidth: 400 }}>{loadError}</p>
+            <button className="btn btn-secondary" onClick={load} style={{ marginTop: '0.5rem' }}>↺ Retry</button>
           </div>
         ) : filteredData ? (
           <GraphViewer

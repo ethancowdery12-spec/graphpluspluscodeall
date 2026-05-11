@@ -331,8 +331,21 @@ async def call_llm(
     if USE_SIMULATION:
         return await _simulate(instruction or prompt, prompt)
 
-    # Resolve instruction / input
-    instr      = instruction or "Complete the following request."
+    # Resolve instruction / input.
+    # The Alpaca template has no native "system" slot, so we fold the system
+    # prompt into the ### Instruction: field.  Priority:
+    #   instruction + system  →  combine (system first, then instruction)
+    #   system only           →  system becomes the instruction
+    #   instruction only      →  use instruction as-is
+    #   neither               →  generic fallback
+    if instruction and system:
+        instr = f"{system}\n\n{instruction}"
+    elif system:
+        instr = system
+    elif instruction:
+        instr = instruction
+    else:
+        instr = "Complete the following request."
     input_text = prompt
 
     # 1. Local Llama.cpp server (fastest for local AMD/Vulkan)

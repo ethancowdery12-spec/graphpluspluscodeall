@@ -106,6 +106,11 @@ export default function QueryPage() {
     return () => timers.forEach(clearTimeout)
   }, [loading])
 
+  // Load graph on mount so the visualization is ready immediately
+  useEffect(() => {
+    fetchGraph().then(setGraphData).catch(() => {/* silently ignore — graph stays hidden */})
+  }, [])
+
   const submit = async (q = question) => {
     if (!q.trim() || loading) return
     setLoading(true)
@@ -113,8 +118,8 @@ export default function QueryPage() {
     setResult(null)
     setTokenStats({ tokens: 0, tokensPerSec: 0, preview: '' })
 
-    // Load graph for background visualization
-    fetchGraph().then(setGraphData)
+    // Refresh graph data for path highlighting after query completes
+    fetchGraph().then(setGraphData).catch(() => {/* non-fatal */})
 
     try {
       const r = await runQuery(q)
