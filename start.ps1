@@ -1,34 +1,48 @@
 # ======================================================================
-#             GraphRAG++ Quick-Start Script                             
-#             Starts: llama-server -> backend -> frontend                
+#  GraphRAG++  Quick-Start
+#  Works from any working directory — can be pinned as a shortcut or
+#  run via: powershell -File "C:\...\GraphRAG\start.ps1"
 # ======================================================================
 
-$Root       = $PSScriptRoot
-$ModelFile  = "graphrag-plus-plus-qwen35-4b-q3_k_m-fixed.gguf"
-$LlamaExe   = "llama-b9066\llama-server.exe"
-$LlamaPort  = 8080
-$BackendPort = 8000
+# ── Locate the project root no matter how the script was invoked ──────
+# $PSScriptRoot is reliable for direct .ps1 invocations (PS 3+).
+# $MyInvocation.MyCommand.Path covers edge cases (dot-source, shortcuts).
+if ($PSScriptRoot) {
+    $Root = $PSScriptRoot
+} elseif ($MyInvocation.MyCommand.Path) {
+    $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
+} else {
+    # Last resort: ask the OS where this script lives
+    $Root = Split-Path -Parent (
+        (Get-Item $MyInvocation.MyCommand.Definition -ErrorAction SilentlyContinue).FullName
+    )
+}
+
+if (-not $Root -or -not (Test-Path $Root)) {
+    Write-Host "[ERROR] Cannot determine project root. Run the script directly." -ForegroundColor Red
+    exit 1
+}
+
+# ── Config ─────────────────────────────────────────────────────────────
+$ModelFile    = "graphrag-plus-plus-qwen35-4b-q3_k_m-fixed.gguf"
+$LlamaExe     = "llama-b9066\llama-server.exe"
+$LlamaPort    = 8080
+$BackendPort  = 8000
 $FrontendPort = 3000
 
-# ---- Helpers ---------------------------------------------------------
+# ── Helpers ────────────────────────────────────────────────────────────
 function Write-Step([int]$n, [string]$msg) {
     Write-Host ""
     Write-Host "  [$n/3] $msg" -ForegroundColor Cyan
 }
+function Write-Ok([string]$msg)   { Write-Host "        OK  : $msg" -ForegroundColor Green }
+function Write-Warn([string]$msg) { Write-Host "        WARN: $msg" -ForegroundColor Yellow }
 
-function Write-Ok([string]$msg) {
-    Write-Host "        OK: $msg" -ForegroundColor Green
-}
-
-function Write-Warn([string]$msg) {
-    Write-Host "        WARN: $msg" -ForegroundColor Yellow
-}
-
-function Wait-Port([int]$port, [int]$timeoutSec = 20) {
+function Wait-Port([int]$port, [int]$timeoutSec = 30) {
     $deadline = [DateTime]::Now.AddSeconds($timeoutSec)
     while ([DateTime]::Now -lt $deadline) {
         try {
-            $tcp = New-Object System.Net.Sockets.TcpClient
+            $tcp = [System.Net.Sockets.TcpClient]::new()
             $tcp.Connect("127.0.0.1", $port)
             $tcp.Close()
             return $true
@@ -38,102 +52,123 @@ function Wait-Port([int]$port, [int]$timeoutSec = 20) {
     return $false
 }
 
-# ---- Banner ----------------------------------------------------------
+function Clear-Port([int]$port) {
+    $pids = (netstat -ano 2>$null |
+        Select-String ":$port\s" |
+        ForEach-Object { ($_ -split '\s+')[-1] } |
+        Where-Object { $_ -match '^\d+$' } |
+        Sort-Object -Unique)
+    foreach ($p in $pids) {
+        try { Stop-Process -Id $p -Force -ErrorAction SilentlyContinue } catch {}
+    }
+}
+
+# ── Banner ─────────────────────────────────────────────────────────────
 Clear-Host
 Write-Host ""
 Write-Host "  ================================================" -ForegroundColor DarkCyan
-Write-Host "          GraphRAG++  Quick-Start  v2             " -ForegroundColor Cyan
-Write-Host "          Local AMD/Vulkan GPU Inference          " -ForegroundColor DarkCyan
+Write-Host "          GraphRAG++  Quick-Start               " -ForegroundColor Cyan
+Write-Host "          Local AMD/Vulkan GPU Inference        " -ForegroundColor DarkCyan
 Write-Host "  ================================================" -ForegroundColor DarkCyan
 Write-Host ""
+Write-Host "  Project: $Root" -ForegroundColor DarkGray
+Write-Host ""
 
-# ---- Pre-flight checks -----------------------------------------------
-if (-not (Test-Path (Join-Path $Root $LlamaExe))) {
-    Write-Host "  [ERROR] $LlamaExe not found in $Root" -ForegroundColor Red
-    Write-Host "          Download a Vulkan build from:" -ForegroundColor Red
-    Write-Host "          https://github.com/ggerganov/llama.cpp/releases" -ForegroundColor Yellow
-    exit 1
+# ── Pre-flight checks ──────────────────────────────────────────────────
+$LlamaPath = Join-Path $Root $LlamaExe
+$ModelPath  = Join-Path $Root $ModelFile
+$hasLlama   = Test-Path $LlamaPath
+$hasModel   = Test-Path $ModelPath
+
+if (-not $hasLlama) {
+    Write-Warn "llama-server not found — LLM step will be skipped."
+    Write-Host "          Expected: $LlamaPath" -ForegroundColor DarkGray
+}
+if (-not $hasModel) {
+    Write-Warn "Model file not found — LLM step will be skipped."
+    Write-Host "          Expected: $ModelPath" -ForegroundColor DarkGray
 }
 
-if (-not (Test-Path (Join-Path $Root $ModelFile))) {
-    Write-Host "  [ERROR] Model file not found: $ModelFile" -ForegroundColor Red
-    Write-Host "          Run: python download_model.py" -ForegroundColor Yellow
-    exit 1
-}
+# ── Clear stale port occupants ──────────────────────────────────────────
+Write-Host "  Clearing stale processes on ports $LlamaPort, $BackendPort, $FrontendPort..." -ForegroundColor DarkGray
+Clear-Port $LlamaPort
+Clear-Port $BackendPort
+Clear-Port $FrontendPort
+Start-Sleep -Milliseconds 600
 
-# ---- Step 1: llama-server (GPU inference) ----------------------------
+# ── Step 1: llama-server ───────────────────────────────────────────────
 Write-Step 1 "Starting llama-server (Vulkan GPU)..."
-$LlamaArgs = @(
-    "-m", (Join-Path $Root $ModelFile),
-    "--port", $LlamaPort,
-    "--host", "127.0.0.1",
-    "--n-gpu-layers", "99",
-    "--ctx-size", "4096",
-    "--threads", "6",
-    "--log-disable"
-)
-$llamaProc = Start-Process -FilePath (Join-Path $Root $LlamaExe) `
-    -ArgumentList $LlamaArgs `
-    -WorkingDirectory $Root `
-    -PassThru -WindowStyle Minimized
 
-Write-Host "        Waiting for llama-server on port $LlamaPort..." -ForegroundColor DarkGray
+if ($hasLlama -and $hasModel) {
+    $LlamaArgs = @(
+        "-m", $ModelPath,
+        "--port", $LlamaPort,
+        "--host", "127.0.0.1",
+        "--n-gpu-layers", "99",
+        "--ctx-size", "4096",
+        "--threads", "6",
+        "--log-disable"
+    )
+    $llamaProc = Start-Process -FilePath $LlamaPath `
+        -ArgumentList $LlamaArgs `
+        -WorkingDirectory $Root `
+        -PassThru -WindowStyle Minimized
 
-if (Wait-Port $LlamaPort 30) {
-    Write-Ok "llama-server ready on http://127.0.0.1:$LlamaPort (PID $($llamaProc.Id))"
+    Write-Host "        Waiting for llama-server on :$LlamaPort..." -ForegroundColor DarkGray
+    if (Wait-Port $LlamaPort 30) {
+        Write-Ok "llama-server ready  http://127.0.0.1:$LlamaPort  (PID $($llamaProc.Id))"
+        $env:LOCAL_LLAMA_CPP_URL = "http://127.0.0.1:$LlamaPort"
+    } else {
+        Write-Warn "llama-server did not respond in 30 s — check the minimised window."
+    }
 } else {
-    Write-Warn "llama-server didn't respond in 30s - check the minimized window for errors."
+    Write-Warn "Skipping llama-server (missing binary or model). Backend will use HF API fallback."
 }
 
-# ---- Step 2: Python backend ------------------------------------------
+# ── Step 2: Python backend ─────────────────────────────────────────────
 Write-Step 2 "Starting FastAPI backend..."
 
-# Point the backend at the local llama-server
-$env:LOCAL_LLAMA_CPP_URL = "http://127.0.0.1:$LlamaPort"
-
-$BackendCmd = "Set-Location '$Root\backend'; python main.py"
+$BackendDir = Join-Path $Root "backend"
+$BackendCmd = "Set-Location '$BackendDir'; python main.py"
 Start-Process powershell `
     -ArgumentList "-NoExit", "-Command", $BackendCmd `
     -WindowStyle Normal
 
-Write-Host "        Waiting for backend on port $BackendPort..." -ForegroundColor DarkGray
-if (Wait-Port $BackendPort 25) {
-    Write-Ok "Backend ready on http://localhost:$BackendPort"
+Write-Host "        Waiting for backend on :$BackendPort..." -ForegroundColor DarkGray
+if (Wait-Port $BackendPort 30) {
+    Write-Ok "Backend ready  http://localhost:$BackendPort"
 } else {
-    Write-Warn "Backend didn't respond in 25s - check the backend window."
+    Write-Warn "Backend did not respond in 30 s — check the backend window."
 }
 
-# ---- Step 3: Next.js frontend ----------------------------------------
+# ── Step 3: Next.js frontend ───────────────────────────────────────────
 Write-Step 3 "Starting Next.js frontend..."
 
-$FrontendCmd = "Set-Location '$Root\frontend'; npm run dev"
+$FrontendDir = Join-Path $Root "frontend"
+$FrontendCmd = "Set-Location '$FrontendDir'; npm run dev"
 Start-Process powershell `
     -ArgumentList "-NoExit", "-Command", $FrontendCmd `
     -WindowStyle Normal
 
-Write-Host "        Waiting for frontend on port $FrontendPort..." -ForegroundColor DarkGray
-if (Wait-Port $FrontendPort 40) {
-    Write-Ok "Frontend ready on http://localhost:$FrontendPort"
+Write-Host "        Waiting for frontend on :$FrontendPort..." -ForegroundColor DarkGray
+if (Wait-Port $FrontendPort 45) {
+    Write-Ok "Frontend ready  http://localhost:$FrontendPort"
 } else {
-    Write-Warn "Frontend didn't respond in 40s - check the frontend window."
+    Write-Warn "Frontend did not respond in 45 s — check the frontend window."
 }
 
-# ---- Done ------------------------------------------------------------
+# ── Done ───────────────────────────────────────────────────────────────
 Write-Host ""
 Write-Host "  ================================================" -ForegroundColor Green
-Write-Host "     [OK] GraphRAG++ is running!                  " -ForegroundColor Green
+Write-Host "     GraphRAG++ is running                       " -ForegroundColor Green
 Write-Host "                                                  " -ForegroundColor Green
-Write-Host "     UI        ->  http://localhost:3000          " -ForegroundColor Green
-Write-Host "     Backend   ->  http://localhost:8000          " -ForegroundColor Green
-Write-Host "     LLM       ->  http://localhost:8080          " -ForegroundColor Green
+Write-Host "     UI      ->  http://localhost:$FrontendPort          " -ForegroundColor Green
+Write-Host "     API     ->  http://localhost:$BackendPort          " -ForegroundColor Green
+Write-Host "     LLM     ->  http://localhost:$LlamaPort         " -ForegroundColor Green
 Write-Host "                                                  " -ForegroundColor Green
-Write-Host "     Mode: Local AMD Radeon (Vulkan)              " -ForegroundColor Green
+Write-Host "     Press Ctrl+C in any window to stop a service" -ForegroundColor DarkGray
 Write-Host "  ================================================" -ForegroundColor Green
 Write-Host ""
 
-# Open browser after a short delay
 Start-Sleep -Seconds 2
 Start-Process "http://localhost:$FrontendPort"
-
-Write-Host "  Press Ctrl+C in any window to stop that service." -ForegroundColor DarkGray
-Write-Host ""

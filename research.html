@@ -1,0 +1,1442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GraphRAG++ Deep Research — Graphify · Standard RAG · Integration Roadmap</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2128;
+    --border: #30363d;
+    --accent: #58a6ff;
+    --accent2: #3fb950;
+    --accent3: #f78166;
+    --accent4: #d2a8ff;
+    --accent5: #ffa657;
+    --text: #c9d1d9;
+    --text-dim: #8b949e;
+    --text-bright: #f0f6fc;
+    --tag-bg: #1f3451;
+    --warning: #e3b341;
+    --danger: #f85149;
+    --success: #3fb950;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    display: flex;
+  }
+
+  /* Sidebar */
+  nav#sidebar {
+    width: 260px;
+    min-width: 260px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    overflow-y: auto;
+    padding: 24px 0;
+    flex-shrink: 0;
+  }
+  nav#sidebar .logo {
+    padding: 0 20px 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+  nav#sidebar .logo h2 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: .5px;
+  }
+  nav#sidebar .logo p {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+  nav#sidebar a {
+    display: block;
+    padding: 6px 20px;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 13px;
+    border-left: 2px solid transparent;
+    transition: all .15s;
+  }
+  nav#sidebar a:hover { color: var(--text-bright); background: var(--surface2); }
+  nav#sidebar .nav-group { margin-bottom: 8px; }
+  nav#sidebar .nav-label {
+    padding: 10px 20px 4px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  nav#sidebar a.active { color: var(--accent); border-left-color: var(--accent); background: rgba(88,166,255,.07); }
+
+  /* Main content */
+  main {
+    flex: 1;
+    max-width: 960px;
+    padding: 48px 60px;
+    overflow-x: hidden;
+  }
+
+  /* Page header */
+  .page-header {
+    margin-bottom: 48px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+  }
+  .page-header .badge {
+    display: inline-block;
+    background: rgba(88,166,255,.15);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  .page-header h1 {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--text-bright);
+    line-height: 1.25;
+    margin-bottom: 12px;
+  }
+  .page-header p {
+    color: var(--text-dim);
+    font-size: 15px;
+    max-width: 680px;
+  }
+  .meta-row {
+    display: flex;
+    gap: 24px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+  }
+  .meta-item {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .meta-item strong { color: var(--text); }
+
+  /* Sections */
+  section { margin-bottom: 64px; }
+  h2.section-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-bright);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  h2.section-title .pill {
+    font-size: 11px;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+    letter-spacing: .5px;
+  }
+  .pill-blue { background: rgba(88,166,255,.2); color: var(--accent); }
+  .pill-green { background: rgba(63,185,80,.2); color: var(--accent2); }
+  .pill-purple { background: rgba(210,168,255,.2); color: var(--accent4); }
+  .pill-orange { background: rgba(255,166,87,.2); color: var(--accent5); }
+  .section-desc {
+    color: var(--text-dim);
+    margin-bottom: 28px;
+    font-size: 14px;
+    max-width: 700px;
+  }
+  h3 {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-bright);
+    margin: 32px 0 12px;
+  }
+  h4 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 20px 0 8px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+  p { margin-bottom: 14px; color: var(--text); }
+  ul, ol { padding-left: 24px; margin-bottom: 14px; }
+  li { margin-bottom: 6px; color: var(--text); }
+  strong { color: var(--text-bright); }
+  code {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+    font-size: 13px;
+    color: var(--accent4);
+  }
+  pre {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    overflow-x: auto;
+    margin: 16px 0;
+    font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text);
+  }
+  pre code { background: none; border: none; padding: 0; font-size: inherit; }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .card-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-bright);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Grid */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  @media (max-width: 700px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+  /* Pro/Con */
+  .pro-con { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
+  .pro-box {
+    background: rgba(63,185,80,.08);
+    border: 1px solid rgba(63,185,80,.25);
+    border-radius: 8px;
+    padding: 18px;
+  }
+  .con-box {
+    background: rgba(248,81,73,.08);
+    border: 1px solid rgba(248,81,73,.25);
+    border-radius: 8px;
+    padding: 18px;
+  }
+  .pro-box h4 { color: var(--success); margin-top: 0; }
+  .con-box h4 { color: var(--danger); margin-top: 0; }
+  .pro-box li::marker { color: var(--success); }
+  .con-box li::marker { color: var(--danger); }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; margin: 20px 0; border-radius: 8px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; }
+  thead { background: var(--surface2); }
+  th {
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 11px 16px;
+    font-size: 13px;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,.02); }
+  td.green { color: var(--accent2); font-weight: 600; }
+  td.yellow { color: var(--warning); font-weight: 600; }
+  td.red { color: var(--danger); font-weight: 600; }
+
+  /* Pipeline steps */
+  .pipeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 20px 0;
+    position: relative;
+  }
+  .pipeline::before {
+    content: '';
+    position: absolute;
+    left: 20px;
+    top: 20px;
+    bottom: 20px;
+    width: 2px;
+    background: var(--border);
+  }
+  .pipeline-step {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    padding: 16px 0;
+    position: relative;
+  }
+  .step-num {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 2px solid var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+    position: relative;
+    z-index: 1;
+  }
+  .step-body { flex: 1; padding-top: 8px; }
+  .step-body strong { color: var(--text-bright); }
+
+  /* Alert boxes */
+  .alert {
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 16px 0;
+    border-left: 3px solid;
+  }
+  .alert-info { background: rgba(88,166,255,.08); border-color: var(--accent); }
+  .alert-warn { background: rgba(227,179,65,.08); border-color: var(--warning); }
+  .alert-tip { background: rgba(63,185,80,.08); border-color: var(--success); }
+  .alert-danger { background: rgba(248,81,73,.08); border-color: var(--danger); }
+  .alert p { margin-bottom: 0; font-size: 14px; }
+  .alert strong { font-weight: 700; }
+
+  /* Stat boxes */
+  .stats-row { display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0; }
+  .stat-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    flex: 1;
+    min-width: 120px;
+  }
+  .stat-box .val {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .stat-box .lbl { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .5px; }
+
+  /* Tag */
+  .tag {
+    display: inline-block;
+    background: var(--tag-bg);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin: 2px;
+  }
+
+  /* Citation */
+  .cite {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-style: italic;
+    margin-top: 8px;
+    display: block;
+  }
+  a.ref { color: var(--accent); text-decoration: none; font-size: 12px; }
+  a.ref:hover { text-decoration: underline; }
+
+  /* Recommendation cards */
+  .rec-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+    border-left: 4px solid var(--accent);
+  }
+  .rec-card.priority-high { border-left-color: var(--accent3); }
+  .rec-card.priority-med { border-left-color: var(--warning); }
+  .rec-card.priority-low { border-left-color: var(--accent2); }
+  .rec-card .rec-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+  .priority-high .rec-label { color: var(--accent3); }
+  .priority-med .rec-label { color: var(--warning); }
+  .priority-low .rec-label { color: var(--accent2); }
+  .rec-card h4 { margin: 0 0 8px; font-size: 15px; color: var(--text-bright); text-transform: none; letter-spacing: 0; }
+  .rec-card p { margin: 0; font-size: 14px; }
+
+  /* Divider */
+  hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav id="sidebar">
+  <div class="logo">
+    <h2>GraphRAG++ Research</h2>
+    <p>Deep-dive &middot; May 2026</p>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-label">Overview</div>
+    <a href="#intro">Introduction</a>
+    <a href="#summary-table">Comparison Table</a>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-label">Graphify</div>
+    <a href="#graphify-what">What Is Graphify?</a>
+    <a href="#graphify-how">How It Works</a>
+    <a href="#graphify-proscons">Pros &amp; Cons</a>
+    <a href="#graphify-fit">Fit for GraphRAG++</a>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-label">Standard RAG</div>
+    <a href="#rag-pipeline">Full Pipeline</a>
+    <a href="#rag-chunking">Chunking Strategies</a>
+    <a href="#rag-retrieval">Retrieval Strategies</a>
+    <a href="#rag-variants">RAG Variants</a>
+    <a href="#rag-embeddings">SoTA Embeddings</a>
+    <a href="#rag-eval">Evaluation (RAGAS)</a>
+    <a href="#rag-proscons">Pros &amp; Cons</a>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-label">GraphRAG++</div>
+    <a href="#gpp-arch">Architecture</a>
+    <a href="#gpp-pipeline">6-Step Pipeline</a>
+    <a href="#gpp-strengths">Strengths</a>
+    <a href="#gpp-gaps">Gaps &amp; Weaknesses</a>
+  </div>
+
+  <div class="nav-group">
+    <div class="nav-label">Integration</div>
+    <a href="#rec-immediate">Immediate Wins</a>
+    <a href="#rec-medium">Medium-Term</a>
+    <a href="#rec-longterm">Long-Term</a>
+    <a href="#rec-architecture">Target Architecture</a>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main>
+
+<!-- PAGE HEADER -->
+<div class="page-header" id="intro">
+  <div class="badge">Deep Research Report</div>
+  <h1>GraphRAG++ &middot; Graphify &middot; Standard RAG<br>&mdash; Integration Research</h1>
+  <p>A comprehensive technical analysis of three retrieval-augmented generation approaches: Graphify (codebase knowledge graphs for Claude), Standard RAG (the canonical Lewis et al. pipeline), and GraphRAG++ (the hybrid local system). Includes concrete recommendations for unifying all three.</p>
+  <div class="meta-row">
+    <div class="meta-item"><strong>Date:</strong> May 2026</div>
+    <div class="meta-item"><strong>Sources:</strong> Web research (Graphify GitHub, arXiv, MTEB, Anthropic blog) + CLAUDE.md direct analysis</div>
+    <div class="meta-item"><strong>Scope:</strong> Research only &mdash; no implementation</div>
+  </div>
+</div>
+
+<!-- SUMMARY TABLE -->
+<section id="summary-table">
+  <h2 class="section-title">Quick Comparison <span class="pill pill-blue">Overview</span></h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>Graphify</th>
+          <th>Standard RAG</th>
+          <th>GraphRAG++</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Primary Unit</strong></td>
+          <td>Code symbol graph</td>
+          <td>Text passage chunks</td>
+          <td>Entity-relation triples + passage chunks</td>
+        </tr>
+        <tr>
+          <td><strong>Graph Engine</strong></td>
+          <td>Tree-sitter AST (local)</td>
+          <td>None</td>
+          <td>NetworkX MultiDiGraph + PageRank + Louvain</td>
+        </tr>
+        <tr>
+          <td><strong>Embeddings</strong></td>
+          <td>LLM for doc/PDF, AST for code</td>
+          <td>Dense bi-encoder (e.g., BGE-M3, Qwen3)</td>
+          <td>all-MiniLM-L6-v2 (384-dim) + FAISS</td>
+        </tr>
+        <tr>
+          <td><strong>Multi-hop</strong></td>
+          <td>Via graph edges</td>
+          <td class="red">No native support</td>
+          <td class="green">BFS up to 6 hops</td>
+        </tr>
+        <tr>
+          <td><strong>Token Reduction</strong></td>
+          <td class="green">49x&ndash;71.5x</td>
+          <td>2&ndash;5x (chunking)</td>
+          <td>Partial (graph path + chunks)</td>
+        </tr>
+        <tr>
+          <td><strong>LLM Required</strong></td>
+          <td>Only for docs/PDF</td>
+          <td>For generation only</td>
+          <td>Triple extraction + generation</td>
+        </tr>
+        <tr>
+          <td><strong>Target Content</strong></td>
+          <td>Codebases</td>
+          <td>Text documents</td>
+          <td>Mixed (text-dominant)</td>
+        </tr>
+        <tr>
+          <td><strong>Evaluation</strong></td>
+          <td>Token savings benchmark</td>
+          <td>RAGAS: faithfulness, relevance, recall</td>
+          <td>None currently</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<hr>
+
+<!-- ==================== GRAPHIFY ==================== -->
+<section id="graphify-what">
+  <h2 class="section-title">Graphify <span class="pill pill-blue">Section 1</span></h2>
+  <p class="section-desc">Web-researched findings from the Graphify GitHub repository, PyPI listing, and community documentation. Graphify is a <strong>real, active Claude Code skill</strong> &mdash; not to be confused with any generic concept.</p>
+
+  <h3>What Is Graphify?</h3>
+  <p>Graphify is an open-source Claude Code skill (community-built, <strong>not an official Anthropic product</strong>) created by <strong>@safishamsi</strong>. It converts any codebase into a queryable knowledge graph that Claude can use to answer architecture questions with dramatically less token usage. PyPI package name: <code>graphifyy</code>.</p>
+
+  <div class="stats-row">
+    <div class="stat-box">
+      <div class="val">49&ndash;71x</div>
+      <div class="lbl">Token reduction</div>
+    </div>
+    <div class="stat-box">
+      <div class="val">AST</div>
+      <div class="lbl">Code parsing (local, no LLM)</div>
+    </div>
+    <div class="stat-box">
+      <div class="val">MCP</div>
+      <div class="lbl">Server mode available</div>
+    </div>
+    <div class="stat-box">
+      <div class="val">0</div>
+      <div class="lbl">API keys required for code</div>
+    </div>
+  </div>
+
+  <div class="alert alert-info">
+    <p><strong>Source:</strong> GitHub: <code>safishamsi/graphify</code> &middot; PyPI: <code>pip install graphifyy</code> &middot; Official install: <code>uv tool install graphifyy &amp;&amp; graphify install</code></p>
+  </div>
+</section>
+
+<section id="graphify-how">
+  <h3>How Graphify Works</h3>
+
+  <p>Graphify uses a two-track parsing strategy depending on file type:</p>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Track 1: Code Files</div>
+      <p>Uses <strong>Tree-sitter</strong> (a concrete syntax tree parser) to extract symbols, imports, function calls, class hierarchies, and dependency edges &mdash; entirely locally. No LLM API call. Supports: Python, JavaScript, TypeScript, Java, C++, Rust, Go, and more.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Track 2: Docs &amp; PDFs</div>
+      <p>Routes non-code files (Markdown, PDFs, README, config files) through an LLM to extract conceptual relationships and link them into the same graph. The LLM call is optional and model-agnostic.</p>
+    </div>
+  </div>
+
+  <h4>Output Files</h4>
+  <ul>
+    <li><code>graph.json</code> &mdash; full structured graph (nodes, edges, metadata)</li>
+    <li><code>GRAPH_REPORT.md</code> &mdash; human-readable architecture summary</li>
+    <li><code>graph.html</code> &mdash; interactive D3.js graph browser</li>
+  </ul>
+
+  <h4>Integration into Claude Code &mdash; The PreToolUse Hook</h4>
+  <p>Running <code>graphify install</code> writes a <strong>PreToolUse hook</strong> into <code>~/.claude/settings.json</code>. This hook fires <em>before every Claude tool call</em> and injects relevant graph context as a system message. When you ask Claude "how does the auth flow work?", Claude already has the relevant module edges and symbol relationships in its context window &mdash; without reading dozens of files.</p>
+
+  <pre><code># Conceptual flow of the PreToolUse hook:
+# User asks question
+# PreToolUse fires before Claude reads any file
+# graphify reads graph.json, finds relevant nodes
+# Injects structured graph context as system message
+# Claude answers with architectural precision
+# without token-expensive sequential file reads</code></pre>
+
+  <h4>MCP Server Mode</h4>
+  <p>Graphify also exposes itself as an <strong>MCP (Model Context Protocol) server</strong>, providing 4 tools Claude can call on demand:</p>
+  <ul>
+    <li><code>query_graph</code> &mdash; semantic graph search</li>
+    <li><code>get_node</code> &mdash; fetch a specific symbol/module node</li>
+    <li><code>get_neighbors</code> &mdash; traverse graph edges from a node</li>
+    <li><code>get_summary</code> &mdash; high-level architecture overview</li>
+  </ul>
+</section>
+
+<section id="graphify-proscons">
+  <h3>Graphify &mdash; Pros &amp; Cons</h3>
+  <div class="pro-con">
+    <div class="pro-box">
+      <h4>Strengths</h4>
+      <ul>
+        <li><strong>Massive token savings</strong> (49&ndash;71x): graph context replaces full file reads</li>
+        <li><strong>Zero-API-key code parsing</strong> via Tree-sitter &mdash; works fully offline for code files</li>
+        <li><strong>Seamless Claude integration</strong> &mdash; PreToolUse hook is invisible to the user</li>
+        <li><strong>MCP mode</strong> gives Claude on-demand graph query capability</li>
+        <li><strong>Language-agnostic</strong> graph representation &mdash; consistent schema across Python, JS, TS, etc.</li>
+        <li><strong>Interactive HTML viewer</strong> included out of the box</li>
+        <li>One-command install: <code>uv tool install graphifyy &amp;&amp; graphify install</code></li>
+      </ul>
+    </div>
+    <div class="con-box">
+      <h4>Weaknesses</h4>
+      <ul>
+        <li><strong>Code-centric</strong> &mdash; best at code symbol graphs; doc/PDF quality depends on LLM calls</li>
+        <li><strong>Static graph</strong> &mdash; doesn't auto-update when code changes; must re-run <code>graphify</code></li>
+        <li><strong>Community project</strong> &mdash; not an official Anthropic tool; API surface may change</li>
+        <li><strong>No passage retrieval</strong> &mdash; no chunk store, no cosine search; graph only</li>
+        <li><strong>No temporal awareness</strong> &mdash; graph is a snapshot, not a live view</li>
+        <li>Hook fires on every PreToolUse &mdash; minor latency per call</li>
+        <li>Token savings benchmark may not apply to text/document domains</li>
+      </ul>
+    </div>
+  </div>
+
+  <h4>What Graphify Is Good At</h4>
+  <ul>
+    <li>Understanding large, unfamiliar codebases (onboarding)</li>
+    <li>Architecture questions: "what calls this function?", "where is X defined?"</li>
+    <li>Impact analysis: "what breaks if I change this module?"</li>
+    <li>Reducing Claude API costs on code-heavy tasks</li>
+  </ul>
+
+  <h4>What Graphify Is Bad At</h4>
+  <ul>
+    <li>Semantic document/prose retrieval (no embeddings, no cosine search)</li>
+    <li>Multi-hop reasoning over factual knowledge (not designed for knowledge graphs)</li>
+    <li>Real-time / live queries over changing data</li>
+    <li>Domain knowledge that isn't captured in code structure</li>
+  </ul>
+</section>
+
+<section id="graphify-fit">
+  <h3>Graphify's Fit for GraphRAG++</h3>
+  <div class="alert alert-tip">
+    <p><strong>Key insight:</strong> GraphRAG++'s codebase <em>is</em> a perfect candidate for Graphify. The backend Python modules, pipeline steps, and API endpoints form a dependency graph that Graphify can parse with Tree-sitter. This would give Claude (and developers) a structured view of the codebase without reading all files.</p>
+  </div>
+  <p>Two integration angles exist:</p>
+  <ol>
+    <li><strong>Developer tooling</strong> &mdash; run Graphify on the GraphRAG++ codebase itself so Claude Code has architectural context when helping with development</li>
+    <li><strong>Feature parity</strong> &mdash; adopt Graphify's preprocessing approach (pre-build a code knowledge graph at ingest time) inside GraphRAG++'s own pipeline, when ingesting code repositories via <code>/ingest/directory</code></li>
+  </ol>
+</section>
+
+<hr>
+
+<!-- ==================== STANDARD RAG ==================== -->
+<section id="rag-pipeline">
+  <h2 class="section-title">Standard RAG <span class="pill pill-green">Section 2</span></h2>
+  <p class="section-desc">Sourced from real web research: Lewis et al. 2020 (arXiv:2005.11401), MTEB Leaderboard, RAGAS documentation (arXiv:2309.15217), Anthropic Contextual Retrieval blog, and SoTA embedding benchmarks.</p>
+
+  <h3>The Full 8-Stage RAG Pipeline</h3>
+  <p>Standard RAG (Retrieval-Augmented Generation) was introduced by Lewis et al. in 2020. The core insight: instead of fine-tuning an LLM on your data, dynamically retrieve relevant passages at inference time and inject them into the prompt.</p>
+  <span class="cite">Origin: "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks" &mdash; Lewis et al., 2020. arXiv:2005.11401</span>
+
+  <div class="pipeline">
+    <div class="pipeline-step">
+      <div class="step-num">1</div>
+      <div class="step-body"><strong>Document Ingestion</strong> &mdash; Load raw sources: PDFs, HTML, code, databases. Extract text via parser (pdfplumber, BeautifulSoup, etc.).</div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">2</div>
+      <div class="step-body"><strong>Chunking</strong> &mdash; Split documents into overlapping segments. Choice of chunking strategy is the single most impactful decision in a RAG system (see below).</div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">3</div>
+      <div class="step-body"><strong>Embedding</strong> &mdash; Encode each chunk into a dense vector using a bi-encoder model (e.g., <code>all-MiniLM-L6-v2</code>, <code>BGE-M3</code>, <code>Qwen3-Embedding</code>).</div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">4</div>
+      <div class="step-body"><strong>Vector Index</strong> &mdash; Store embeddings in an ANN index (FAISS, Qdrant, Weaviate, pgvector). Index type determines recall vs. speed tradeoff.</div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">5</div>
+      <div class="step-body"><strong>Query Embedding</strong> &mdash; At query time, embed the user's question with the same model to get a query vector.</div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">6</div>
+      <div class="step-body"><strong>ANN Retrieval</strong> &mdash; Fetch top-k nearest chunks by cosine similarity. Optionally augment with sparse BM25 retrieval and combine via RRF (Reciprocal Rank Fusion).</div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">7</div>
+      <div class="step-body"><strong>Context Stuffing &amp; Reranking</strong> &mdash; Optionally rerank with a cross-encoder for +33&ndash;40% accuracy. Assemble retrieved chunks into a prompt context window.</div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">8</div>
+      <div class="step-body"><strong>LLM Generation</strong> &mdash; Send [system prompt + retrieved context + query] to LLM. LLM synthesises a grounded answer.</div>
+    </div>
+  </div>
+</section>
+
+<section id="rag-chunking">
+  <h3>Chunking Strategies</h3>
+  <p>Chunking strategy is the highest-leverage decision in RAG. A poorly chunked corpus cannot be saved by a better retriever.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Strategy</th><th>How It Works</th><th>Best For</th><th>Risk</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Fixed-size</strong></td>
+          <td>Split every N tokens with M-token overlap</td>
+          <td>Baseline; simple pipelines</td>
+          <td class="red">High boundary fragmentation</td>
+        </tr>
+        <tr>
+          <td><strong>Sentence-level</strong></td>
+          <td>Split on sentence boundaries (NLTK/spaCy)</td>
+          <td>Well-structured prose</td>
+          <td class="yellow">Short chunks lose context</td>
+        </tr>
+        <tr>
+          <td><strong>Semantic</strong></td>
+          <td>Embed sentences, merge until cosine drops below threshold</td>
+          <td>Long documents with topic shifts</td>
+          <td class="yellow">Slow; variable chunk size</td>
+        </tr>
+        <tr>
+          <td><strong>Parent-child (small-to-big)</strong></td>
+          <td>Index small chunks, retrieve parent for context</td>
+          <td>High-precision retrieval with rich context</td>
+          <td class="green">Best recall/precision tradeoff</td>
+        </tr>
+        <tr>
+          <td><strong>Late Chunking (Jina v3)</strong></td>
+          <td>Embed full doc, then chunk pooled embeddings</td>
+          <td>Long-form docs needing full context embeddings</td>
+          <td class="green">Best coherence; requires Jina v3</td>
+        </tr>
+        <tr>
+          <td><strong>Propositional</strong></td>
+          <td>LLM decomposes each sentence into atomic facts</td>
+          <td>Knowledge-dense scientific text</td>
+          <td class="red">Expensive; 10&ndash;20x cost of fixed</td>
+        </tr>
+        <tr>
+          <td><strong>Page-level</strong></td>
+          <td>One chunk = one PDF page</td>
+          <td>PDFs where layout = topic</td>
+          <td class="yellow">Chunks often too large; irrelevant content included</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="alert alert-warn">
+    <p><strong>Critical failure mode:</strong> Fixed-size chunking cuts across logical boundaries &mdash; a chunk ending mid-sentence about one topic and beginning mid-sentence about another causes the retriever to return irrelevant context even with a perfect embedding model.</p>
+  </div>
+</section>
+
+<section id="rag-retrieval">
+  <h3>Retrieval Strategies</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Method</th><th>Mechanism</th><th>Strengths</th><th>Weaknesses</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>BM25 (sparse)</strong></td>
+          <td>TF-IDF variant with term saturation</td>
+          <td>Fast; handles rare terms &amp; exact matches</td>
+          <td>No semantic understanding</td>
+        </tr>
+        <tr>
+          <td><strong>Dense bi-encoder</strong></td>
+          <td>Query + doc encoded to same embedding space</td>
+          <td>Semantic matching; language-agnostic</td>
+          <td>Misses exact-match (keyword) queries</td>
+        </tr>
+        <tr>
+          <td><strong>Hybrid + RRF</strong></td>
+          <td>Merge BM25 + dense rankings via Reciprocal Rank Fusion (k=60)</td>
+          <td class="green">Best general recall; +15&ndash;25% over either alone</td>
+          <td>Slightly more complex pipeline</td>
+        </tr>
+        <tr>
+          <td><strong>Cross-encoder reranking</strong></td>
+          <td>Re-score top-k with full attention over (query, doc) pair</td>
+          <td class="green">+33&ndash;40% accuracy vs. bi-encoder alone</td>
+          <td>Slow &mdash; O(k) full inference calls</td>
+        </tr>
+        <tr>
+          <td><strong>ColBERT (late interaction)</strong></td>
+          <td>Token-level MaxSim between query and doc embeddings</td>
+          <td>High accuracy; pre-computed doc embeddings</td>
+          <td>Large index footprint</td>
+        </tr>
+        <tr>
+          <td><strong>BGE-M3</strong></td>
+          <td>Single model: dense + sparse + multi-vector</td>
+          <td class="green">One model replaces BM25 + bi-encoder + ColBERT</td>
+          <td>Larger model size</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4>FAISS Index Selection Guide</h4>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Index Type</th><th>Scale</th><th>Recall</th><th>Latency</th><th>Use When</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>IndexFlatIP</code></td>
+          <td>&lt;100K vectors</td>
+          <td class="green">1.00 (exact)</td>
+          <td>Medium</td>
+          <td>Small corpus, correctness critical</td>
+        </tr>
+        <tr>
+          <td><code>IndexHNSW</code></td>
+          <td>&lt;5M vectors</td>
+          <td class="green">0.95&ndash;0.99</td>
+          <td class="green">Sub-ms</td>
+          <td>Production; best recall/speed tradeoff</td>
+        </tr>
+        <tr>
+          <td><code>IndexIVFPQ</code></td>
+          <td>&gt;5M vectors</td>
+          <td class="yellow">0.85&ndash;0.95</td>
+          <td class="green">Fastest</td>
+          <td>Billion-scale; memory constrained</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p><strong>GraphRAG++ currently uses FlatIP</strong> &mdash; appropriate for 993 chunks, but will need HNSW at ~50K+ chunks.</p>
+</section>
+
+<section id="rag-variants">
+  <h3>RAG Variants (Beyond Naive RAG)</h3>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Naive RAG</div>
+      <p>Retrieve &rarr; stuff &rarr; generate. The baseline. Fails on multi-hop, ambiguous queries, and long documents. Good enough for simple Q&amp;A over structured corpora.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Advanced RAG</div>
+      <p>Adds query transformations: <strong>HyDE</strong> (generate a hypothetical document, embed that for retrieval, arXiv:2212.10496), <strong>step-back prompting</strong>, <strong>query rewriting</strong>, <strong>query decomposition</strong>. Significantly improves recall on complex questions.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Self-RAG</div>
+      <p>The LLM decides <em>when</em> to retrieve and evaluates its own retrieved passages with critique tokens (ISREL, ISSUP, ISUSE). Avoids unnecessary retrieval on questions the model already knows. arXiv:2310.11511</p>
+    </div>
+    <div class="card">
+      <div class="card-title">CRAG (Corrective RAG)</div>
+      <p>Evaluates retrieved docs, triggers web search if confidence is low, uses a knowledge refinement algorithm to decompose docs into fine-grained strips. arXiv:2401.15884</p>
+    </div>
+    <div class="card">
+      <div class="card-title">RAPTOR</div>
+      <p>Recursive Abstractive Processing &mdash; embeds all chunks, hierarchically clusters them (UMAP + Gaussian Mixture), summarises each cluster, then indexes summaries alongside raw chunks. Enables retrieval at multiple abstraction levels.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">RAG-Fusion</div>
+      <p>Generates N query variants with an LLM, runs parallel retrieval for each, merges results via RRF. arXiv:2402.03367. Simple and effective: +10&ndash;15% recall on ambiguous queries.</p>
+    </div>
+  </div>
+
+  <div class="alert alert-tip">
+    <p><strong>Anthropic Contextual Retrieval:</strong> Prepend a 50&ndash;100 token LLM-generated context blurb to each chunk before embedding ("This chunk is from a technical report on safety evaluations..."). Results: 35% failure reduction from contextual embeddings alone; 67% failure reduction with contextual embeddings + BM25 + cross-encoder reranking combined.</p>
+  </div>
+</section>
+
+<section id="rag-embeddings">
+  <h3>State-of-the-Art Embeddings (2024&ndash;2025)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Model</th><th>MTEB Score</th><th>Dim</th><th>Notes</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Qwen3-Embedding-8B</strong></td>
+          <td class="green">75.22</td>
+          <td>4096</td>
+          <td>Current #1 MTEB as of mid-2025; Alibaba; instruction-tuned</td>
+        </tr>
+        <tr>
+          <td><strong>NV-Embed-v2</strong></td>
+          <td class="green">72.31</td>
+          <td>4096</td>
+          <td>NVIDIA; strong on retrieval; top-tier for enterprise</td>
+        </tr>
+        <tr>
+          <td><strong>BGE-M3</strong></td>
+          <td class="green">~70</td>
+          <td>1024</td>
+          <td>BAAI; hybrid dense+sparse+multi-vector; production-ready</td>
+        </tr>
+        <tr>
+          <td><strong>Jina-embeddings-v3</strong></td>
+          <td class="yellow">65.52</td>
+          <td>768</td>
+          <td>Matryoshka; task-adaptive; supports late chunking</td>
+        </tr>
+        <tr>
+          <td><strong>all-MiniLM-L6-v2</strong> (GraphRAG++ current)</td>
+          <td class="red">~56</td>
+          <td>384</td>
+          <td>Fast; tiny; outdated for production in 2025</td>
+        </tr>
+        <tr>
+          <td><strong>ColPali</strong></td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>Visual document retrieval; embeds PDF page images directly</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="alert alert-warn">
+    <p><strong>GraphRAG++ gap:</strong> <code>all-MiniLM-L6-v2</code> (MTEB ~56) is ~15&ndash;19 points behind BGE-M3 or Qwen3-Embedding. This gap directly affects retrieval quality before any other optimization can help.</p>
+  </div>
+</section>
+
+<section id="rag-eval">
+  <h3>RAG Evaluation &mdash; RAGAS Framework</h3>
+  <p>RAGAS (arXiv:2309.15217) is the standard evaluation framework for RAG systems. It measures four metrics without requiring human labels:</p>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Faithfulness</div>
+      <p>Are all claims in the answer supported by the retrieved context? Measures hallucination. Score: 0&ndash;1.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Answer Relevancy</div>
+      <p>Is the generated answer relevant to the question? Penalises incomplete or off-topic answers.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Context Precision</div>
+      <p>Are retrieved chunks actually useful? Measures retrieval noise &mdash; irrelevant chunks hurt LLM generation.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Context Recall</div>
+      <p>Did retrieval find all the chunks needed to answer? Measures coverage &mdash; missing chunks cause incomplete answers.</p>
+    </div>
+  </div>
+  <div class="alert alert-warn">
+    <p><strong>GraphRAG++ has no evaluation framework.</strong> There is currently no way to know if a pipeline change improved or degraded answer quality. RAGAS integration should be a top priority.</p>
+  </div>
+</section>
+
+<section id="rag-proscons">
+  <h3>Standard RAG &mdash; Pros &amp; Cons</h3>
+  <div class="pro-con">
+    <div class="pro-box">
+      <h4>Strengths</h4>
+      <ul>
+        <li>Well-understood, battle-tested since 2020</li>
+        <li>No LLM required at ingestion time (just an embedder)</li>
+        <li>Fast updates &mdash; add a document, embed, done</li>
+        <li>Highly composable &mdash; swap any component independently</li>
+        <li>Works well for single-hop factual Q&amp;A and summarisation</li>
+        <li>Rich ecosystem (LangChain, LlamaIndex, Haystack)</li>
+        <li>Evaluation tooling (RAGAS) is mature</li>
+      </ul>
+    </div>
+    <div class="con-box">
+      <h4>Weaknesses</h4>
+      <ul>
+        <li><strong>No multi-hop reasoning</strong> &mdash; "What connects A to B?" fails without explicit graph structure</li>
+        <li><strong>Lost-in-the-middle</strong> &mdash; LLMs perform worst on evidence in the middle of a long context window</li>
+        <li><strong>Chunk boundary fragmentation</strong> &mdash; semantic continuity broken by fixed chunk splits</li>
+        <li><strong>Irrelevant retrieval poisoning</strong> &mdash; retrieved noise degrades generation even with correct chunks present</li>
+        <li><strong>No entity awareness</strong> &mdash; disambiguation requires entity linking</li>
+        <li><strong>Static retrieval</strong> &mdash; vanilla RAG retrieves once; iterative/recursive retrieval requires architectural extensions</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<hr>
+
+<!-- ==================== GRAPHRAG++ ==================== -->
+<section id="gpp-arch">
+  <h2 class="section-title">GraphRAG++ Analysis <span class="pill pill-purple">Section 3</span></h2>
+  <p class="section-desc">Derived from direct study of <code>CLAUDE.md</code> &mdash; the authoritative architecture documentation for this project. All technical details are sourced from there.</p>
+
+  <h3>Architecture Overview</h3>
+  <div class="card">
+    <div class="card-title">Full Stack</div>
+    <div class="grid-2">
+      <div>
+        <h4>Backend (port 8000)</h4>
+        <ul>
+          <li>FastAPI + Uvicorn</li>
+          <li>NetworkX <code>MultiDiGraph</code> + PageRank + Louvain communities</li>
+          <li>FAISS (CPU) + <code>all-MiniLM-L6-v2</code> (384-dim)</li>
+          <li>Qwen 3.5B GGUF via llama.cpp (AMD Vulkan, port 8080)</li>
+          <li>HuggingFace Inference API as fallback</li>
+          <li>993 passage chunks from Claude Mythos PDF</li>
+          <li>Alpaca prompt template</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Frontend (port 3000)</h4>
+        <ul>
+          <li>Next.js 16 + React 19 + TypeScript</li>
+          <li>D3.js 7 interactive graph visualisation</li>
+          <li>Chart.js 4 analytics dashboard</li>
+          <li>WebSocket streaming (pipeline steps + tokens)</li>
+          <li>Self-reconnecting WebSocket manager</li>
+          <li>10-minute query timeout for slow GPU</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <h4>LLM 4-Tier Fallback</h4>
+  <ol>
+    <li><strong>Local llama.cpp</strong> &mdash; <code>LOCAL_LLAMA_CPP_URL</code> (AMD GPU via Vulkan, port 8080)</li>
+    <li><strong>HuggingFace Inference API</strong> &mdash; <code>HF_TOKEN</code> + <code>HF_MODEL_ID</code></li>
+    <li><strong>Gradio client</strong> &mdash; HF Space fallback</li>
+    <li><strong>Simulation</strong> &mdash; deterministic mock (no LLM; last resort)</li>
+  </ol>
+</section>
+
+<section id="gpp-pipeline">
+  <h3>The 6-Step Query Pipeline</h3>
+  <p>Defined in <code>backend/pipeline/query_engine.py</code> &mdash; the core intelligence of the system.</p>
+
+  <div class="pipeline">
+    <div class="pipeline-step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <strong>Intent Classification</strong> &mdash; LLM extracts entities and classifies query type: <em>factual</em>, <em>multi-hop</em>, <em>aggregative</em>, or <em>comparative</em>. Determines downstream traversal strategy.
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <strong>Semantic Node Matching</strong> &mdash; Query is embedded with <code>all-MiniLM-L6-v2</code> (384-dim), searched against the FAISS index to find the top-k graph nodes most similar to the query.
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <strong>Graph Traversal</strong> &mdash; Multi-hop BFS + PageRank over the NetworkX MultiDiGraph, up to 6 hops from seed nodes. Discovers relationship chains not findable by flat vector search alone.
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <strong>Passage Retrieval</strong> &mdash; Cosine search over the chunk_store (993 chunks). <strong>Keyword boosting</strong>: if 3+ query keywords match a chunk, that chunk overrides the cosine top-1. Collects chunks from top_page, top_page+1, top_page+2 (3-page span for boundary handling).
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <strong>Context Fusion</strong> &mdash; Stitches graph traversal paths + passage chunks into a grounded prompt. Quote-continuation trim and <code>_norm_quotes()</code> for "Continue this section" query types.
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-num">6</div>
+      <div class="step-body">
+        <strong>LLM Generation</strong> &mdash; Sends to local Qwen 3.5B with Alpaca template. Falls back to direct passage extraction if output fails <code>_answer_is_corrupted()</code> check (Alpaca bleed-through, instruction-echo, empty output).
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="gpp-strengths">
+  <h3>GraphRAG++ Strengths</h3>
+  <div class="pro-con">
+    <div class="pro-box">
+      <h4>What GraphRAG++ Does Well</h4>
+      <ul>
+        <li><strong>Multi-hop reasoning</strong> &mdash; BFS + PageRank traversal up to 6 hops; standard RAG cannot do this</li>
+        <li><strong>Hybrid retrieval</strong> &mdash; graph paths + passage chunks give structural + semantic context simultaneously</li>
+        <li><strong>Community detection</strong> &mdash; Louvain communities enable global summary queries</li>
+        <li><strong>Local-first</strong> &mdash; full pipeline runs on AMD GPU via Vulkan llama.cpp; no cloud required</li>
+        <li><strong>Streaming UX</strong> &mdash; WebSocket broadcasts pipeline step events and token-level generation progress</li>
+        <li><strong>Corruption detection</strong> &mdash; <code>_answer_is_corrupted()</code> catches Alpaca bleed-through and instruction-echo</li>
+        <li><strong>Intent classification</strong> &mdash; adapts retrieval strategy per query type</li>
+        <li><strong>Full ingestion pipeline</strong> &mdash; PDF, code, image, ZIP, directory walk all supported</li>
+      </ul>
+    </div>
+    <div class="con-box">
+      <h4>Current Limitations</h4>
+      <ul>
+        <li><strong>Outdated embedding model</strong> &mdash; <code>all-MiniLM-L6-v2</code> (MTEB ~56) is ~15 points behind SoTA</li>
+        <li><strong>No BM25 / sparse retrieval</strong> &mdash; exact-keyword queries rely on keyword-boost heuristic (3+ hits), not a real sparse index</li>
+        <li><strong>No reranking</strong> &mdash; retrieved chunks are not cross-encoder reranked before context fusion</li>
+        <li><strong>No evaluation framework</strong> &mdash; no RAGAS or equivalent; cannot measure if changes improve quality</li>
+        <li><strong>No query expansion</strong> &mdash; no HyDE, RAG-Fusion, or query decomposition; single-pass retrieval only</li>
+        <li><strong>Corpus bias</strong> &mdash; 993 chunks primarily from Claude Mythos PDF; answers to non-Claude-related queries will be weak</li>
+        <li><strong>Triple extraction quality</strong> &mdash; LLM-extracted triples from ingested docs may be noisy; no validation step</li>
+        <li><strong>No contextual embedding</strong> &mdash; chunks are embedded raw; Anthropic's contextual retrieval not applied</li>
+        <li><strong>Static FAISS FlatIP</strong> &mdash; exact but won't scale past ~50K chunks</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="gpp-gaps">
+  <h3>Key Technical Gaps</h3>
+
+  <div class="alert alert-danger">
+    <p><strong>Gap 1 &mdash; Embedding quality:</strong> <code>all-MiniLM-L6-v2</code> MTEB score of ~56 vs BGE-M3 at ~70. Every retrieval step is bottlenecked by this 14-point gap. Upgrading the embedding model improves steps 2 and 4 simultaneously.</p>
+  </div>
+
+  <div class="alert alert-danger">
+    <p><strong>Gap 2 &mdash; No evaluation:</strong> The system has no way to measure whether it's working well or badly. Queries that appear to return reasonable text may be hallucinating. RAGAS integration is blocking for any serious development iteration.</p>
+  </div>
+
+  <div class="alert alert-warn">
+    <p><strong>Gap 3 &mdash; Keyword boost heuristic:</strong> The "3+ keyword match" override in Step 4 is a brittle heuristic. Real BM25 sparse retrieval + RRF fusion would handle this more robustly while also improving exact-match queries.</p>
+  </div>
+
+  <div class="alert alert-warn">
+    <p><strong>Gap 4 &mdash; Single-pass retrieval:</strong> Queries are executed once with no expansion. HyDE or RAG-Fusion would significantly improve recall on ambiguous or multi-faceted questions.</p>
+  </div>
+
+  <div class="alert alert-warn">
+    <p><strong>Gap 5 &mdash; No contextual chunk embedding:</strong> Chunks are embedded raw. Anthropic's Contextual Retrieval (prepend 50&ndash;100 token LLM-generated context to each chunk) reduces retrieval failures by 35&ndash;67% and requires only a one-time re-embedding pass.</p>
+  </div>
+</section>
+
+<hr>
+
+<!-- ==================== RECOMMENDATIONS ==================== -->
+<section>
+  <h2 class="section-title">Integration Recommendations <span class="pill pill-orange">Section 4</span></h2>
+  <p class="section-desc">How to make GraphRAG++ better by combining lessons from Graphify and Standard RAG best practices. Ordered by impact and implementation difficulty.</p>
+</section>
+
+<section id="rec-immediate">
+  <h3>Immediate Wins (Low Effort, High Impact)</h3>
+
+  <div class="rec-card priority-high">
+    <div class="rec-label">Priority: High &middot; Effort: Low</div>
+    <h4>1. Run Graphify on the GraphRAG++ Codebase Itself</h4>
+    <p>Install Graphify (<code>uv tool install graphifyy &amp;&amp; graphify install</code>) and run it on the GraphRAG++ Python backend. The PreToolUse hook will give Claude Code structured architectural awareness when helping with development. Token savings of 49&ndash;71x mean Claude can understand <code>query_engine.py</code>, <code>graph_builder.py</code>, and <code>llm.py</code> relationships without reading all files. This is developer-tooling only &mdash; no backend code change needed.</p>
+  </div>
+
+  <div class="rec-card priority-high">
+    <div class="rec-label">Priority: High &middot; Effort: Low&ndash;Medium</div>
+    <h4>2. Add RAGAS Evaluation</h4>
+    <p>Before any other optimization, install <code>ragas</code> and create a golden test set of 20&ndash;50 (query, ground-truth-answer) pairs. Run RAGAS metrics (Faithfulness, Answer Relevancy, Context Precision, Context Recall) after every significant pipeline change. Without this, you cannot know if changes help or hurt. Use <code>USE_SIMULATION=true</code> mode for cheap evaluation runs during development.</p>
+  </div>
+
+  <div class="rec-card priority-high">
+    <div class="rec-label">Priority: High &middot; Effort: Medium</div>
+    <h4>3. Upgrade Embedding Model to BGE-M3</h4>
+    <p>Replace <code>all-MiniLM-L6-v2</code> (MTEB ~56, 384-dim) with <code>BAAI/bge-m3</code> (MTEB ~70, 1024-dim). BGE-M3 provides dense + sparse + multi-vector retrieval in a single model &mdash; immediately enabling hybrid retrieval without adding BM25 as a separate component. Re-embed all 993 chunks. Update FAISS index to 1024-dim. The FAISS index stays FlatIP at this corpus size.</p>
+  </div>
+
+  <div class="rec-card priority-med">
+    <div class="rec-label">Priority: Medium &middot; Effort: Low</div>
+    <h4>4. Replace Keyword-Boost Heuristic with BM25</h4>
+    <p>The current "3+ keyword match" override is brittle. Add <code>rank_bm25</code> as a sparse retriever over the chunk store text. Merge BM25 scores with cosine scores using RRF (k=60). This is ~30 lines of code in <code>chunk_store.py</code> and eliminates the fragile keyword counting logic while improving exact-match retrieval quality.</p>
+  </div>
+</section>
+
+<section id="rec-medium">
+  <h3>Medium-Term Improvements</h3>
+
+  <div class="rec-card priority-med">
+    <div class="rec-label">Priority: Medium &middot; Effort: Medium</div>
+    <h4>5. Apply Anthropic's Contextual Retrieval</h4>
+    <p>For each of the 993 chunks, generate a 50&ndash;100 token context blurb using the LLM ("This chunk discusses X in the context of Y...") and prepend it before embedding. Re-embed all chunks with the context-enriched text. Anthropic reports 35% failure reduction from contextual embeddings alone, and 67% with contextual embeddings + BM25 + reranking. This is a one-time preprocessing pass &mdash; chunks are stored as enriched text; the query-time pipeline is unchanged.</p>
+  </div>
+
+  <div class="rec-card priority-med">
+    <div class="rec-label">Priority: Medium &middot; Effort: Medium</div>
+    <h4>6. Add Cross-Encoder Reranking (Step 4.5)</h4>
+    <p>After cosine retrieval returns top-k chunks (Step 4), add a cross-encoder reranking step using <code>cross-encoder/ms-marco-MiniLM-L-6-v2</code> or similar. Cross-encoders score (query, chunk) pairs with full attention &mdash; giving +33&ndash;40% accuracy over bi-encoder retrieval alone. Only rerank top-20 candidates. This slots cleanly between Step 4 (passage retrieval) and Step 5 (context fusion) in <code>query_engine.py</code>.</p>
+  </div>
+
+  <div class="rec-card priority-med">
+    <div class="rec-label">Priority: Medium &middot; Effort: Medium</div>
+    <h4>7. Implement Graphify-Style Code Graph Ingestion</h4>
+    <p>When a user ingests a code directory via <code>/ingest/directory</code>, apply Tree-sitter AST parsing (like Graphify does) instead of treating code as plain text. Extract function definitions, class hierarchies, imports, and call graphs as typed edges in the NetworkX graph. This dramatically improves multi-hop queries like "what calls <code>cosine_search</code> and what does it return?" &mdash; questions that naive text chunking cannot answer structurally.</p>
+  </div>
+
+  <div class="rec-card priority-med">
+    <div class="rec-label">Priority: Medium &middot; Effort: Medium</div>
+    <h4>8. Add RAG-Fusion Query Expansion</h4>
+    <p>Before the main retrieval pipeline (before Step 2), generate 3 query variants using the LLM (different phrasings of the same question), run retrieval for each variant in parallel, then merge all retrieved chunks via RRF. This improves recall on ambiguous queries by +10&ndash;15% with minimal latency overhead on local GPU. Enable selectively for multi-hop and comparative query types; skip for factual.</p>
+  </div>
+</section>
+
+<section id="rec-longterm">
+  <h3>Long-Term Architecture Improvements</h3>
+
+  <div class="rec-card priority-low">
+    <div class="rec-label">Priority: Strategic &middot; Effort: High</div>
+    <h4>9. Self-RAG Critique Loop</h4>
+    <p>After LLM generation (Step 6), add a critique pass where the LLM evaluates its own output for faithfulness to the retrieved context. If faithfulness score is low, trigger a second retrieval pass with a refined query. This closes the loop between generation and retrieval &mdash; the system gets smarter per query rather than retrieving once and hoping. Requires Qwen 3.5B to handle critique prompts well; may need the HF-hosted model for reliable critique.</p>
+  </div>
+
+  <div class="rec-card priority-low">
+    <div class="rec-label">Priority: Strategic &middot; Effort: High</div>
+    <h4>10. Graphify MCP Server Integration</h4>
+    <p>Run Graphify in MCP server mode alongside the FastAPI backend. Expose Graphify's <code>query_graph</code>, <code>get_neighbors</code>, and <code>get_summary</code> tools to the query pipeline so that code-structure queries can be answered by the AST-based graph (Graphify's strength) while document/knowledge queries use the existing NetworkX entity graph. This creates a dual-graph architecture: one for code structure, one for knowledge relationships.</p>
+  </div>
+
+  <div class="rec-card priority-low">
+    <div class="rec-label">Priority: Strategic &middot; Effort: High</div>
+    <h4>11. Upgrade to HNSW + Parent-Child Chunking</h4>
+    <p>As the chunk store grows past 50K chunks, switch FAISS from <code>IndexFlatIP</code> to <code>IndexHNSWFlat</code> for sub-millisecond search. Simultaneously adopt parent-child chunking: index small (128-token) child chunks for precision retrieval, but return the larger (512-token) parent chunk as context. This decouples retrieval granularity from context richness.</p>
+  </div>
+
+  <div class="rec-card priority-low">
+    <div class="rec-label">Priority: Strategic &middot; Effort: Medium</div>
+    <h4>12. RAPTOR Hierarchical Graph Overlay</h4>
+    <p>After initial triple extraction builds the node-level graph, run RAPTOR-style clustering: embed all entity nodes, cluster via UMAP + Gaussian Mixture, summarise each cluster using the LLM, add summary nodes to the graph as "community summaries." This enables the graph to answer aggregative queries ("summarise all entities related to safety") by retrieving from the summary layer rather than enumerating all individual nodes &mdash; which is what Louvain communities partially provide but without the LLM-generated summary text.</p>
+  </div>
+</section>
+
+<section id="rec-architecture">
+  <h3>Target Architecture Diagram</h3>
+  <p>The fully-integrated system when all recommendations are applied:</p>
+
+  <pre><code>GRAPHRAG++ v2 (Target Architecture)
+=========================================
+
+INGESTION PATH
+  PDF/Text  --&gt;  Contextual chunking + LLM context prepend
+                 --&gt;  BGE-M3 embedder (dense+sparse+multi-vec)
+                       --&gt;  FAISS HNSW index
+                       --&gt;  BM25 sparse index
+
+  Code files --&gt; Tree-sitter AST parser (Graphify-inspired)
+                  --&gt;  NetworkX MultiDiGraph
+                        (entities + code symbols + RAPTOR summaries)
+
+QUERY PATH
+  User Query
+       |
+       v
+  [1] Intent Classification (factual/multi-hop/aggregative/comp)
+       |
+       v  [optional for multi-hop/comparative]
+  [RAG-Fusion] Generate N query variants --&gt; parallel retrieval
+       |
+       v
+  [2] Semantic Node Match (BGE-M3 dense --&gt; FAISS HNSW)
+       |
+       v
+  [3] Graph Traversal (BFS/PageRank up to 6 hops)
+       |
+       v
+  [4] Hybrid Chunk Retrieval (BGE-M3 dense + BM25 --&gt; RRF merge)
+       |
+       v
+  [4.5] Cross-Encoder Reranking (top-20 --&gt; top-5)
+       |
+       v
+  [5] Context Fusion (graph paths + ranked chunks)
+       |
+       v
+  [6] Qwen 3.5B Generation (Alpaca template)
+       |
+       v  [Self-RAG critique loop]
+  [6.5] Faithfulness Check --&gt; re-retrieve if score below 0.7
+       |
+       v
+  Final Answer + RAGAS metrics (background eval)
+
+DEVELOPER TOOLING
+  Graphify PreToolUse hook --&gt; code graph injected into
+  Claude Code context for all development sessions</code></pre>
+
+  <h3>Prioritised Implementation Roadmap</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>#</th><th>Change</th><th>Effort</th><th>Expected Impact</th><th>Blocks</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>Install Graphify on codebase (dev tooling)</td>
+          <td class="green">1 command</td>
+          <td>49&ndash;71x token savings for Claude dev sessions</td>
+          <td>Nothing</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>Add RAGAS evaluation harness</td>
+          <td class="green">1&ndash;2 days</td>
+          <td>Unlocks measurement of all future changes</td>
+          <td>All downstream changes</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>Replace embedding model with BGE-M3</td>
+          <td class="yellow">2&ndash;3 days</td>
+          <td>+14 MTEB points; hybrid dense+sparse built-in</td>
+          <td>BM25 integration becomes easier</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>Replace keyword-boost heuristic with BM25+RRF</td>
+          <td class="green">~1 day</td>
+          <td>More robust exact-keyword retrieval</td>
+          <td>BGE-M3 upgrade (step 3)</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td>Contextual chunk embedding (Anthropic approach)</td>
+          <td class="yellow">2&ndash;3 days</td>
+          <td>35&ndash;67% retrieval failure reduction</td>
+          <td>BGE-M3 (step 3)</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td>Add cross-encoder reranking (Step 4.5)</td>
+          <td class="yellow">1&ndash;2 days</td>
+          <td>+33&ndash;40% answer accuracy</td>
+          <td>None</td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td>Tree-sitter AST ingestion for code dirs</td>
+          <td class="red">1&ndash;2 weeks</td>
+          <td>Structural multi-hop over code repositories</td>
+          <td>None</td>
+        </tr>
+        <tr>
+          <td>8</td>
+          <td>RAG-Fusion query expansion</td>
+          <td class="yellow">2 days</td>
+          <td>+10&ndash;15% recall on ambiguous queries</td>
+          <td>None</td>
+        </tr>
+        <tr>
+          <td>9</td>
+          <td>HNSW index + parent-child chunking</td>
+          <td class="red">1 week</td>
+          <td>Production scale-readiness; better chunk context</td>
+          <td>Corpus growth past 50K</td>
+        </tr>
+        <tr>
+          <td>10</td>
+          <td>Self-RAG critique loop</td>
+          <td class="red">2+ weeks</td>
+          <td>Closed-loop faithfulness; fewer hallucinations</td>
+          <td>Evaluation framework (step 2)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<hr>
+
+<!-- SOURCES -->
+<section>
+  <h2 class="section-title">Research Sources</h2>
+  <div class="card">
+    <div class="card-title">Graphify</div>
+    <ul>
+      <li>GitHub: <code>safishamsi/graphify</code> &mdash; README, installation, benchmark numbers</li>
+      <li>PyPI: <code>graphifyy</code> package listing</li>
+      <li>SkillsLLM directory: Graphify skill listing and description</li>
+    </ul>
+  </div>
+  <div class="card">
+    <div class="card-title">Standard RAG</div>
+    <ul>
+      <li>Lewis et al. 2020 &mdash; "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks" &mdash; arXiv:2005.11401</li>
+      <li>RAGAS &mdash; "RAGAS: Automated Evaluation of Retrieval Augmented Generation" &mdash; arXiv:2309.15217</li>
+      <li>MTEB Leaderboard &mdash; Hugging Face MTEB benchmark scores (accessed May 2026)</li>
+      <li>Anthropic Blog &mdash; "Introducing Contextual Retrieval" (35%/67% failure reduction)</li>
+      <li>HyDE &mdash; arXiv:2212.10496</li>
+      <li>Self-RAG &mdash; arXiv:2310.11511</li>
+      <li>CRAG &mdash; arXiv:2401.15884</li>
+      <li>RAG-Fusion &mdash; arXiv:2402.03367</li>
+    </ul>
+  </div>
+  <div class="card">
+    <div class="card-title">GraphRAG++</div>
+    <ul>
+      <li><code>CLAUDE.md</code> &mdash; Authoritative project architecture documentation (read directly from repo)</li>
+      <li><code>backend/pipeline/query_engine.py</code> &mdash; Pipeline implementation reference</li>
+      <li><code>backend/pipeline/llm.py</code> &mdash; LLM adapter reference</li>
+    </ul>
+  </div>
+</section>
+
+</main>
+
+<script>
+  // Only observe content sections and the page header — not the sidebar itself,
+  // which has an id but no matching nav link and is always visible.
+  const sections = document.querySelectorAll('section[id], .page-header[id]');
+  const navLinks = document.querySelectorAll('nav a');
+
+  const observer = new IntersectionObserver((entries) => {
+    // Update each entry's intersection state on the element itself so we have
+    // a stable, document-order view of what is currently visible.
+    entries.forEach(e => {
+      e.target.dataset.intersecting = e.isIntersecting ? 'true' : 'false';
+    });
+
+    // Pick the topmost (first in document order) currently-intersecting section
+    // so simultaneous entries don't race against each other.
+    const current = [...sections].find(s => s.dataset.intersecting === 'true');
+    navLinks.forEach(a => a.classList.remove('active'));
+    if (current) {
+      const active = document.querySelector('nav a[href="#' + current.id + '"]');
+      if (active) active.classList.add('active');
+    }
+  }, { rootMargin: '-20% 0px -70% 0px' });
+
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>

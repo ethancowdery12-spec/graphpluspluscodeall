@@ -19,4 +19,9 @@ peft==0.13.2
 bitsandbytes==0.44.1
 accelerate==1.1.1
 openai>=1.14.0
+pdfplumber>=0.11.0
 rich==13.9.4
+rank-bm25>=0.3.1
+tree-sitter==0.21.3
+tree-sitter-languages==1.10.2
+ragas>=0.2.0
