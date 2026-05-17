@@ -222,6 +222,7 @@ def seed_graph():
     graph._embeddings = {}
     graph._version = 0
     graph._ingestion_log = []
+    graph._file_hashes = {}
     
     # Ingest paper triples
     r1 = graph.ingest_triples(PAPER_TRIPLES, source="ai_ml_papers")

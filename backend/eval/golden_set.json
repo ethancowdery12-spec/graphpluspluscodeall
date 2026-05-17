@@ -1,0 +1,125 @@
+{
+  "description": "Golden Q&A pairs for RAGAS evaluation of GraphRAG++. ground_truth should be the ideal answer based on your corpus. retrieved_contexts is auto-populated by the eval runner.",
+  "pairs": [
+    {
+      "id": "q01",
+      "question": "What is GraphRAG++ and how does it differ from standard RAG?",
+      "ground_truth": "GraphRAG++ is a hybrid retrieval-augmented generation system that combines a NetworkX knowledge graph with dense passage retrieval using FAISS and sentence-transformers. Unlike standard RAG which only retrieves flat text chunks, GraphRAG++ performs multi-hop BFS and PageRank traversal across entity-relation triples to answer questions that require connecting multiple facts.",
+      "tags": ["system", "comparison"]
+    },
+    {
+      "id": "q02",
+      "question": "How does the query pipeline work in GraphRAG++?",
+      "ground_truth": "The query pipeline has six steps: intent classification (LLM classifies the query as factual, multi-hop, aggregative, or comparative), semantic node matching (FAISS search over graph nodes), hybrid passage retrieval (BM25 + cosine via RRF), cross-encoder reranking, context fusion (combining graph paths and passages), and LLM generation using Qwen 3.5B with an Alpaca prompt template.",
+      "tags": ["pipeline", "system"]
+    },
+    {
+      "id": "q03",
+      "question": "What fallback mechanism does GraphRAG++ use when the LLM output is corrupted?",
+      "ground_truth": "When the LLM output is detected as corrupted (empty, contains Alpaca template artifacts like '### Response:', or its first 60 characters appear verbatim in the input context), the pipeline falls back to direct passage extraction: it takes the top-ranked passage, stitches together chunks from the same page and the two following pages, and returns that text directly without LLM synthesis.",
+      "tags": ["fallback", "pipeline"]
+    },
+    {
+      "id": "q04",
+      "question": "What embedding model does GraphRAG++ use and what dimension are the vectors?",
+      "ground_truth": "GraphRAG++ uses BAAI/bge-m3 as the default embedding model, which produces 1024-dimensional vectors. This replaced the previous all-MiniLM-L6-v2 model (384-dim) to improve retrieval quality from an MTEB score of approximately 56 to approximately 70.",
+      "tags": ["embeddings", "system"]
+    },
+    {
+      "id": "q05",
+      "question": "What is Reciprocal Rank Fusion and how is it used in the retrieval pipeline?",
+      "ground_truth": "Reciprocal Rank Fusion (RRF) is a technique for merging multiple ranked lists. For each document, RRF computes a score of sum(1 / (k + rank_i)) where k=60 is a smoothing constant and rank_i is the document's rank in each list. In GraphRAG++, RRF merges the BM25 sparse retrieval rankings with the cosine dense retrieval rankings to produce a hybrid score that benefits from both semantic and keyword matching.",
+      "tags": ["retrieval", "rrf"]
+    },
+    {
+      "id": "q06",
+      "question": "What is the chunk store and what data does it currently contain?",
+      "ground_truth": "The chunk store is a passage store that holds raw text windows with their embeddings for cosine similarity search. It currently contains approximately 993 chunks sourced primarily from the Claude Mythos Preview System Card PDF. Each chunk stores an id, text, source filename, page number, and embedding vector.",
+      "tags": ["chunk_store", "data"]
+    },
+    {
+      "id": "q07",
+      "question": "How does multi-hop graph traversal work in GraphRAG++?",
+      "ground_truth": "Multi-hop graph traversal starts from seed nodes found by semantic node matching. It performs BFS (Breadth-First Search) combined with PageRank scoring across the NetworkX MultiDiGraph, exploring up to 2 hops for factual queries and 3 hops for multi-hop queries, returning up to 8 paths. Each path is a sequence of entity-relation-entity triples that forms a chain of evidence.",
+      "tags": ["graph", "traversal"]
+    },
+    {
+      "id": "q08",
+      "question": "What LLM models does GraphRAG++ support and in what order does it try them?",
+      "ground_truth": "GraphRAG++ uses a 4-tier LLM fallback: first it tries the local llama.cpp server running Qwen 3.5B GGUF on AMD GPU via Vulkan (port 8080), then the HuggingFace Inference API with Jackrong/Qwen3.5-4B-Claude-4.6-Opus-Reasoning-Distilled-v2, then a Gradio HF Space client, and finally a deterministic simulation mode as last resort.",
+      "tags": ["llm", "fallback"]
+    },
+    {
+      "id": "q09",
+      "question": "What is Louvain community detection and how does GraphRAG++ use it?",
+      "ground_truth": "Louvain is a graph clustering algorithm that detects communities of densely-connected nodes by maximizing modularity. GraphRAG++ applies it to the NetworkX knowledge graph to group related entities into communities, which enables answering aggregative queries like 'summarise all concepts related to topic X' by querying an entire community rather than individual nodes.",
+      "tags": ["graph", "communities"]
+    },
+    {
+      "id": "q10",
+      "question": "What is cross-encoder reranking and why is it more accurate than bi-encoder retrieval alone?",
+      "ground_truth": "A cross-encoder is a model that takes a (query, passage) pair as joint input and uses full self-attention across both texts to score their relevance. This is more accurate than bi-encoder retrieval (which encodes query and passage separately) because the cross-encoder can capture fine-grained interactions between query tokens and passage tokens. The tradeoff is speed: cross-encoders cannot pre-compute document representations. GraphRAG++ uses ms-marco-MiniLM-L-6-v2 to rerank the top-20 hybrid-retrieved candidates down to 5.",
+      "tags": ["retrieval", "reranking"]
+    },
+    {
+      "id": "q11",
+      "question": "How does BM25 differ from dense vector search for passage retrieval?",
+      "ground_truth": "BM25 is a sparse retrieval method based on term frequency and inverse document frequency. It excels at exact keyword matching and handles rare or domain-specific terms well, but has no semantic understanding. Dense vector search (cosine similarity over embeddings) captures semantic meaning and paraphrases but can miss queries with uncommon or very specific terms. Hybrid retrieval combining both via RRF outperforms either approach alone by 15-25% on standard benchmarks.",
+      "tags": ["retrieval", "bm25"]
+    },
+    {
+      "id": "q12",
+      "question": "What is the Alpaca prompt template and why does GraphRAG++ use it?",
+      "ground_truth": "The Alpaca prompt template structures prompts as three sections: ### Instruction (the task directive), ### Input (context/evidence), and ### Response (where the model writes its answer). GraphRAG++ uses it because the local Qwen 3.5B model was fine-tuned on this template, meaning it expects this format to generate coherent responses. Using other prompt formats causes the model to echo the prompt or produce malformed output.",
+      "tags": ["llm", "prompting"]
+    },
+    {
+      "id": "q13",
+      "question": "What are the RAGAS evaluation metrics and what does each measure?",
+      "ground_truth": "RAGAS measures four metrics without requiring human labels: Faithfulness (are all claims in the answer grounded in the retrieved context, measuring hallucination), Answer Relevancy (is the answer relevant to the question, penalising incomplete or off-topic answers), Context Precision (are the retrieved chunks actually useful for answering, measuring retrieval noise), and Context Recall (did retrieval find all chunks needed, measuring coverage). All scores are 0-1.",
+      "tags": ["evaluation", "ragas"]
+    },
+    {
+      "id": "q14",
+      "question": "What is Graphify and how does it help with codebase understanding?",
+      "ground_truth": "Graphify is a Claude Code skill (by @safishamsi, PyPI: graphifyy) that converts codebases into queryable knowledge graphs. It uses Tree-sitter AST parsing for code files (locally, no LLM required) and LLM extraction for documentation files. It installs a PreToolUse hook in Claude Code settings that injects relevant graph context before every tool call, achieving 49-71x token savings compared to reading all files directly.",
+      "tags": ["graphify", "tooling"]
+    },
+    {
+      "id": "q15",
+      "question": "What are the main weaknesses of standard RAG compared to graph-based approaches?",
+      "ground_truth": "Standard RAG cannot perform multi-hop reasoning (connecting A to B to C through a chain of facts), suffers from lost-in-the-middle degradation (LLMs perform worse on evidence placed in the middle of long context windows), is vulnerable to chunk boundary fragmentation (fixed-size splitting breaks semantic continuity), can be degraded by irrelevant retrieved chunks polluting the context, and has no entity awareness for disambiguation.",
+      "tags": ["rag", "comparison"]
+    },
+    {
+      "id": "q16",
+      "question": "What is parent-child chunking and why is it better than fixed-size chunking?",
+      "ground_truth": "Parent-child (small-to-big) chunking indexes small chunks (128 tokens) for high-precision retrieval but returns the larger parent chunk (512 tokens) as the actual context. This decouples retrieval granularity from context richness: small chunks provide precise matching signals while large chunks provide sufficient context for the LLM to synthesise an answer. Fixed-size chunking forces a tradeoff between retrieval precision (small chunks) and context quality (large chunks).",
+      "tags": ["chunking", "rag"]
+    },
+    {
+      "id": "q17",
+      "question": "What is RAPTOR and how could it improve GraphRAG++?",
+      "ground_truth": "RAPTOR (Recursive Abstractive Processing for Tree-Organized Retrieval) hierarchically clusters document embeddings using UMAP dimensionality reduction and Gaussian Mixture Models, then generates LLM summaries of each cluster and adds them back to the index. This creates a multi-level retrieval hierarchy from fine-grained chunks to high-level summaries. Applied to GraphRAG++, it would complement the existing Louvain community detection by adding LLM-generated summary text for each community, enabling richer aggregative query answers.",
+      "tags": ["rag", "raptor"]
+    },
+    {
+      "id": "q18",
+      "question": "How does the WebSocket API work in GraphRAG++?",
+      "ground_truth": "GraphRAG++ maintains a list of connected WebSocket clients at ws://localhost:8000/ws. When a query runs, each completed pipeline step emits a JSON event over all connected WebSockets (step name, icon, timing, result data). During LLM generation, token-level events stream the text as it is produced. The frontend's WebSocket manager auto-reconnects if the connection drops and displays step progress in real time with a 10-minute timeout for slow GPU inference.",
+      "tags": ["api", "websocket"]
+    },
+    {
+      "id": "q19",
+      "question": "What is Contextual Retrieval and what results has Anthropic reported?",
+      "ground_truth": "Contextual Retrieval is an Anthropic technique where a short 50-100 token LLM-generated context blurb is prepended to each chunk before embedding (e.g. 'This chunk is from a safety evaluation report discussing model behaviour under adversarial prompts...'). This additional context helps the embedding model capture the chunk's place within the broader document. Anthropic reports 35% retrieval failure reduction from contextual embeddings alone, and 67% failure reduction when combined with BM25 retrieval and cross-encoder reranking.",
+      "tags": ["rag", "anthropic", "contextual_retrieval"]
+    },
+    {
+      "id": "q20",
+      "question": "What does the /ingest/directory endpoint do?",
+      "ground_truth": "The POST /ingest/directory endpoint walks a server-side directory recursively, routes each file to the appropriate extractor based on type (PDF via pdfplumber, code via the code extractor, images via vision model, ZIP by unpacking), extracts entity-relation triples from each file to add to the NetworkX knowledge graph, and chunks text content into the chunk store with embeddings. It processes an entire codebase or document collection in one API call.",
+      "tags": ["api", "ingestion"]
+    }
+  ]
+}

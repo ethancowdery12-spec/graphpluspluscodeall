@@ -12,11 +12,12 @@ interface InferenceLoaderProps {
 }
 
 const PHASES = [
-  { label: 'Parsing intent', icon: '🧠', detail: 'Classifying query type & extracting entities…' },
-  { label: 'Resolving entities', icon: '🔍', detail: 'Matching concepts to graph nodes via embeddings…' },
-  { label: 'Traversing graph', icon: '🕸️', detail: 'Walking multi-hop paths through knowledge graph…' },
-  { label: 'Fusing context', icon: '⚡', detail: 'Compressing evidence from paths into LLM context…' },
-  { label: 'Generating answer', icon: '✨', detail: 'Streaming tokens from fine-tuned GraphRAG++ model…' },
+  { label: 'Parsing intent',      icon: '🧠', detail: 'Classifying query type & extracting entities…' },
+  { label: 'Resolving entities',  icon: '🔍', detail: 'Matching concepts to graph nodes via embeddings…' },
+  { label: 'Retrieving passages', icon: '📄', detail: 'Dense similarity search over raw document chunks…' },
+  { label: 'Traversing graph',    icon: '🕸️', detail: 'Walking multi-hop paths through knowledge graph…' },
+  { label: 'Fusing context',      icon: '⚡', detail: 'Merging passage evidence + graph paths for LLM…' },
+  { label: 'Generating answer',   icon: '✨', detail: 'Streaming tokens from fine-tuned GraphRAG++ model…' },
 ]
 
 export default function InferenceLoader({
@@ -86,7 +87,7 @@ export default function InferenceLoader({
       <div className="loader-tokens">
         <div className="loader-token-bar">
           <div
-            className={`loader-token-fill ${activeStep >= 4 ? 'fast' : ''}`}
+            className={`loader-token-fill ${activeStep >= 5 ? 'fast' : ''}`}
             // Logarithmic fill: ~50% at 30s, ~80% at 120s, asymptotes to 99%
             style={{ width: `${Math.min(99, 99 * (1 - Math.exp(-elapsed / 60)))}%` }}
           />
@@ -97,7 +98,7 @@ export default function InferenceLoader({
             <span className="loader-token-label">{elapsed > 90 ? ' — local LLM is slow on iGPU, hang tight' : ' elapsed'}</span>
           </span>
           <span className="loader-token-phase">
-            Step {Math.min(activeStep + 1, 5)}/5
+            Step {Math.min(activeStep + 1, 6)}/6
           </span>
         </div>
       </div>

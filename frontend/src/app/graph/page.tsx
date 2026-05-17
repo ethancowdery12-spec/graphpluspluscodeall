@@ -3,18 +3,30 @@ import { useEffect, useState, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { fetchGraph, fetchStats } from '@/lib/api'
 import type { GraphData, GraphNode, GraphStats } from '@/lib/api'
+import IngestPanel from '@/components/IngestPanel'
 
 const GraphViewer = dynamic(() => import('@/components/GraphViewer'), { ssr: false })
 
-export default function GraphPage() {
-  const [data, setData] = useState<GraphData | null>(null)
-  const [stats, setStats] = useState<GraphStats | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null)
-  const [filter, setFilter] = useState<string>('all')
-  const [search, setSearch] = useState('')
+const TIER_COLORS: Record<string, string> = {
+  EXTRACTED: '#34d399',
+  INFERRED:  '#60a5fa',
+  AMBIGUOUS: '#f59e0b',
+}
+const TIER_DESC: Record<string, string> = {
+  EXTRACTED: 'AST-parsed',
+  INFERRED:  'LLM extracted',
+  AMBIGUOUS: 'Low-confidence',
+}
 
-  const [loadError, setLoadError] = useState<string | null>(null)
+export default function GraphPage() {
+  const [data,          setData]          = useState<GraphData | null>(null)
+  const [stats,         setStats]         = useState<GraphStats | null>(null)
+  const [loading,       setLoading]       = useState(true)
+  const [selectedNode,  setSelectedNode]  = useState<GraphNode | null>(null)
+  const [filter,        setFilter]        = useState<string>('all')
+  const [search,        setSearch]        = useState('')
+  const [loadError,     setLoadError]     = useState<string | null>(null)
+  const [showIngest,    setShowIngest]    = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -32,33 +44,31 @@ export default function GraphPage() {
 
   useEffect(() => { load() }, [load])
 
-  const filteredData = data ? {
-    ...data,
-    nodes: data.nodes.filter(n => {
-      const matchType = filter === 'all' || n.type === filter
+  const filteredData = data ? (() => {
+    const nodes = data.nodes.filter(n => {
+      const matchType   = filter === 'all' || n.type === filter
       const matchSearch = !search || n.label.toLowerCase().includes(search.toLowerCase())
       return matchType && matchSearch
-    }),
-    edges: data.edges.filter(e => {
-      const srcNode = data.nodes.find(n => n.id === e.source)
-      const tgtNode = data.nodes.find(n => n.id === e.target)
-      const matchType = filter === 'all' || srcNode?.type === filter || tgtNode?.type === filter
-      const matchSearch = !search || srcNode?.label.toLowerCase().includes(search.toLowerCase()) || tgtNode?.label.toLowerCase().includes(search.toLowerCase())
-      return matchType && matchSearch
-    }),
-  } : null
+    })
+    const nodeIds = new Set(nodes.map(n => n.id))
+    // Only keep edges where BOTH endpoints survived the node filter
+    const edges = data.edges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target))
+    return { ...data, nodes, edges }
+  })() : null
 
   const entityTypes = stats?.entity_types ? Object.keys(stats.entity_types) : []
 
   return (
     <div style={{ display: 'flex', height: 'calc(100vh - var(--nav-h))', overflow: 'hidden' }}>
-      {/* Sidebar */}
+
+      {/* ── Sidebar ──────────────────────────────────────────────────── */}
       <div style={{
         width: 280, flexShrink: 0, background: 'var(--bg-surface)',
-        borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column',
-        overflow: 'hidden',
+        borderRight: '1px solid var(--border)', display: 'flex',
+        flexDirection: 'column', overflow: 'hidden',
       }}>
-        {/* Header */}
+
+        {/* Search */}
         <div style={{ padding: '1.25rem', borderBottom: '1px solid var(--border)' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem' }}>🕸 Graph Explorer</h2>
           <input
@@ -71,16 +81,20 @@ export default function GraphPage() {
           />
         </div>
 
-        {/* Filters */}
+        {/* Type filters */}
         <div style={{ padding: '1rem', borderBottom: '1px solid var(--border)' }}>
-          <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>Filter by Type</div>
+          <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
+            Filter by Type
+          </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
             <button
               id="filter-all"
-              className={`tag tag-unknown`}
+              className="tag tag-unknown"
               style={{ cursor: 'pointer', border: filter === 'all' ? '1px solid var(--cyan)' : '' }}
               onClick={() => setFilter('all')}
-            >all · {stats?.node_count ?? 0}</button>
+            >
+              all · {stats?.node_count ?? 0}
+            </button>
             {entityTypes.map(type => (
               <button
                 key={type}
@@ -99,10 +113,10 @@ export default function GraphPage() {
         <div style={{ padding: '1rem', borderBottom: '1px solid var(--border)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
             {[
-              { label: 'Nodes', value: filteredData?.nodes.length ?? 0 },
-              { label: 'Edges', value: filteredData?.edges.length ?? 0 },
+              { label: 'Nodes',      value: filteredData?.nodes.length ?? 0 },
+              { label: 'Edges',      value: filteredData?.edges.length ?? 0 },
               { label: 'Avg Degree', value: stats?.avg_degree ?? 0 },
-              { label: 'Density', value: stats ? (stats.density * 100).toFixed(3) + '%' : '0%' },
+              { label: 'Files',      value: stats?.file_count ?? 0 },
             ].map(({ label, value }) => (
               <div key={label} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, padding: '0.625rem' }}>
                 <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>{label}</div>
@@ -110,9 +124,53 @@ export default function GraphPage() {
               </div>
             ))}
           </div>
+
+          {/* Confidence tier breakdown */}
+          {stats?.confidence_breakdown && Object.keys(stats.confidence_breakdown).length > 0 && (
+            <div style={{ marginTop: '0.75rem' }}>
+              <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>Edge Confidence</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                {Object.entries(stats.confidence_breakdown).map(([tier, count]) => {
+                  const total = Object.values(stats.confidence_breakdown).reduce((a, b) => a + b, 0)
+                  const pct   = total > 0 ? Math.round((count / total) * 100) : 0
+                  return (
+                    <div key={tier} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: TIER_COLORS[tier] ?? '#94a3b8', flexShrink: 0 }} />
+                      <div style={{ flex: 1, height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{ width: `${pct}%`, height: '100%', background: TIER_COLORS[tier] ?? '#94a3b8', borderRadius: 2 }} />
+                      </div>
+                      <span style={{ fontSize: '0.68rem', color: TIER_COLORS[tier] ?? '#94a3b8', fontFamily: 'var(--font-mono)', minWidth: 24, textAlign: 'right' }}>{pct}%</span>
+                      <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)', minWidth: 60 }}>{TIER_DESC[tier] ?? tier}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Selected Node Inspector */}
+        {/* ── Ingest Panel (collapsible) ──────────────────────────────── */}
+        <div style={{ borderBottom: '1px solid var(--border)' }}>
+          <button
+            onClick={() => setShowIngest(s => !s)}
+            style={{
+              width: '100%', padding: '0.75rem 1rem',
+              background: 'none', border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
+              color: 'var(--text-secondary)', fontSize: '0.82rem', fontWeight: 600,
+              fontFamily: 'var(--font-sans)', textAlign: 'left',
+              transition: 'color 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--cyan)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
+          >
+            <span style={{ fontSize: '0.75rem', transition: 'transform 0.2s', transform: showIngest ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>▶</span>
+            ⬆ Ingest Data
+          </button>
+          {showIngest && <IngestPanel onIngestComplete={load} />}
+        </div>
+
+        {/* Node Inspector */}
         <div style={{ flex: 1, overflow: 'auto', padding: '1rem' }}>
           {selectedNode ? (
             <div>
@@ -122,11 +180,11 @@ export default function GraphPage() {
                 <span className={`tag tag-${selectedNode.type}`} style={{ marginBottom: '0.75rem', display: 'inline-flex' }}>{selectedNode.type}</span>
                 <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                   {[
-                    ['ID', selectedNode.id.slice(0, 12) + '…'],
-                    ['Degree', selectedNode.degree],
-                    ['PageRank', selectedNode.pagerank.toFixed(5)],
+                    ['ID',        selectedNode.id.slice(0, 12) + '…'],
+                    ['Degree',    selectedNode.degree],
+                    ['PageRank',  selectedNode.pagerank.toFixed(5)],
                     ['Community', selectedNode.community],
-                    ['Size', selectedNode.size.toFixed(1)],
+                    ['Size',      (selectedNode.size as number).toFixed(1)],
                   ].map(([k, v]) => (
                     <div key={String(k)} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem' }}>
                       <span style={{ color: 'var(--text-muted)' }}>{k}</span>
@@ -145,13 +203,18 @@ export default function GraphPage() {
 
         {/* Refresh */}
         <div style={{ padding: '1rem', borderTop: '1px solid var(--border)' }}>
-          <button id="graph-refresh-btn" className="btn btn-secondary" style={{ width: '100%', justifyContent: 'center', fontSize: '0.82rem' }} onClick={load}>
+          <button
+            id="graph-refresh-btn"
+            className="btn btn-secondary"
+            style={{ width: '100%', justifyContent: 'center', fontSize: '0.82rem' }}
+            onClick={load}
+          >
             ↺ Refresh Graph
           </button>
         </div>
       </div>
 
-      {/* Main graph canvas */}
+      {/* ── Graph Canvas ────────────────────────────────────────────────── */}
       <div style={{ flex: 1, position: 'relative', background: 'var(--bg-base)' }}>
         {loading ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', gap: '1rem' }}>
@@ -165,10 +228,7 @@ export default function GraphPage() {
             <button className="btn btn-secondary" onClick={load} style={{ marginTop: '0.5rem' }}>↺ Retry</button>
           </div>
         ) : filteredData ? (
-          <GraphViewer
-            data={filteredData}
-            onNodeClick={setSelectedNode}
-          />
+          <GraphViewer data={filteredData} onNodeClick={setSelectedNode} />
         ) : null}
 
         {/* Legend */}
@@ -176,21 +236,37 @@ export default function GraphPage() {
           position: 'absolute', bottom: 16, right: 16,
           background: 'var(--bg-card)', border: '1px solid var(--border)',
           borderRadius: 8, padding: '0.75rem 1rem', fontSize: '0.72rem',
-          backdropFilter: 'blur(10px)',
+          backdropFilter: 'blur(10px)', maxHeight: '80vh', overflow: 'auto',
         }}>
-          <div style={{ color: 'var(--text-muted)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Legend</div>
-          {[
-            ['concept', '#00d4ff'], ['model', '#a855f7'], ['person', '#f59e0b'],
-            ['organization', '#10b981'], ['dataset', '#f43f5e'], ['codebase', '#fb923c'],
-            ['technique', '#6366f1'], ['paper', '#84cc16'],
-          ].map(([type, color]) => (
+          <div style={{ color: 'var(--text-muted)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Entity Types</div>
+          {([
+            ['concept',      '#00d4ff'], ['model',     '#a855f7'],
+            ['person',       '#f59e0b'], ['organization', '#10b981'],
+            ['dataset',      '#f43f5e'], ['technique', '#6366f1'],
+            ['codebase',     '#fb923c'], ['paper',     '#84cc16'],
+            ['file',         '#94a3b8'], ['function',  '#34d399'],
+            ['class',        '#f97316'], ['module',    '#818cf8'],
+          ] as [string, string][]).map(([type, color]) => (
             <div key={type} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
               <span style={{ color: 'var(--text-muted)', textTransform: 'capitalize' }}>{type}</span>
             </div>
           ))}
+
+          <div style={{ color: 'var(--text-muted)', marginTop: '0.75rem', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Edge Confidence</div>
+          {([
+            ['EXTRACTED', '#34d399', '——', 'AST-parsed'],
+            ['INFERRED',  '#60a5fa', '——', 'LLM extracted'],
+            ['AMBIGUOUS', '#f59e0b', '- -', 'Low-confidence'],
+          ] as [string, string, string, string][]).map(([tier, color, dash, desc]) => (
+            <div key={tier} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
+              <span style={{ color, fontFamily: 'var(--font-mono)', fontSize: '0.8em', letterSpacing: '-1px' }}>{dash}</span>
+              <span style={{ color: 'var(--text-muted)' }}>{desc}</span>
+            </div>
+          ))}
+
           <div style={{ marginTop: '0.5rem', color: 'var(--text-muted)', fontSize: '0.68rem' }}>
-            Scroll to zoom · Drag to pan · Click node to inspect
+            Scroll to zoom · Drag to pan<br />Click node/edge to inspect
           </div>
         </div>
       </div>

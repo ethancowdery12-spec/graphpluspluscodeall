@@ -1,0 +1,37 @@
+{
+  "timestamp": "2026-05-17T14:03:08Z",
+  "backend_url": "http://localhost:8000",
+  "num_questions": 3,
+  "pipeline_results": [
+    {
+      "id": "q01",
+      "question": "What is GraphRAG++ and how does it differ from standard RAG?",
+      "ground_truth": "GraphRAG++ is a hybrid retrieval-augmented generation system that combines a NetworkX knowledge graph with dense passage retrieval using FAISS and sentence-transformers. Unlike standard RAG which only retrieves flat text chunks, GraphRAG++ performs multi-hop BFS and PageRank traversal across entity-relation triples to answer questions that require connecting multiple facts.",
+      "answer": "GraphRAG++ is a hybrid retrieval-augmented generation (RAG) system that extends standard RAG by incorporating a knowledge graph. While standard RAG, introduced by Lewis et al. in 2020, primarily combines dense retrieval with a generative LLM to retrieve flat text chunks, GraphRAG++ leverages a NetworkX knowledge graph to store entity-relation triples. This allows it to perform multi-hop Breadth-First Search (BFS) and PageRank traversal across these triples.\n\nThe key difference lies in their retrieval mechanisms. Standard RAG is limited to retrieving isolated text segments, which can be insufficient for questions requiring the connection of multiple facts or understanding complex relationships. GraphRAG++, by contrast, can traverse the knowledge graph to connect disparate pieces of information, enabling it to answer questions that necessitate a deeper understanding of how entities relate to each other. This multi-hop traversal capability provides a more structured and interconnected context for the generative LLM.",
+      "total_ms": 7280,
+      "llm_source": "gemini",
+      "passages_used": 5,
+      "paths_found": 8
+    },
+    {
+      "id": "q02",
+      "question": "How does the query pipeline work in GraphRAG++?",
+      "ground_truth": "The query pipeline has six steps: intent classification (LLM classifies the query as factual, multi-hop, aggregative, or comparative), semantic node matching (FAISS search over graph nodes), hybrid passage retrieval (BM25 + cosine via RRF), cross-encoder reranking, context fusion (combining graph paths and passages), and LLM generation using Qwen 3.5B with an Alpaca prompt template.",
+      "answer": "The query pipeline in GraphRAG++ processes user questions by first leveraging a knowledge graph that stores entity-relation triples. Unlike standard RAG systems that only retrieve flat text chunks, GraphRAG++ performs multi-hop Breadth-First Search (BFS) and PageRank traversal across these triples. This allows it to answer questions requiring the connection of multiple facts, exploring up to 2 hops for factual queries and 3 hops for multi-hop queries, and returning up to 8 paths, each consisting of a sequence of entity-relation-entity triples.\n\nThe system extends traditional RAG by combining dense retrieval and a generative LLM with its graph capabilities. It starts multi-hop graph traversal from seed nodes identified through semantic node matching. GraphRAG++ also applies Louvain community detection to its NetworkX knowledge graph to group related entities, which can be complemented by LLM-generated summary text for each community to enable richer aggregative query answers.\n\nA user's question is sent to the backend via an asynchronous HTTP client, which then triggers the GraphRAG++ query pipeline. This comprehensive approach, integrating graph traversal, community detection, and LLM-generated summaries, allows GraphRAG++ to provide more sophisticated and interconnected answers compared to systems relying solely on flat text retrieval.",
+      "total_ms": 6767,
+      "llm_source": "gemini",
+      "passages_used": 5,
+      "paths_found": 8
+    },
+    {
+      "id": "q03",
+      "question": "What fallback mechanism does GraphRAG++ use when the LLM output is corrupted?",
+      "ground_truth": "When the LLM output is detected as corrupted (empty, contains Alpaca template artifacts like '### Response:', or its first 60 characters appear verbatim in the input context), the pipeline falls back to direct passage extraction: it takes the top-ranked passage, stitches together chunks from the same page and the two following pages, and returns that text directly without LLM synthesis.",
+      "answer": "[Extracted from golden_set.json, p.0–2]\n\nground_truth\": \"When the LLM output is detected as corrupted (empty, contains Alpaca template artifacts like '### Response:', or its first 60 characters appear verbatim in the input context), the pipeline falls back to direct passage extraction: it takes the top-ranked passage, stitches together chunks from the same page and the two following pages, and returns that text directly without LLM synthesis.\",\n      \"tags\": [\"fallback\", \"pipeline\"]\n    },\n    {\n      \"id\": \"q04\",\n      \"question\": \"What embedding model does GraphRAG++ use and what dimension are the vectors?\",\n      \"ground_truth\": \"GraphRAG++ uses BAAI/bge-m3 as the default embedding model, which produces 1024-dimensional vectors. This replaced the previous all-MiniLM-L6-v2 model (384-dim) to improve retrieval quality from an MTEB score of approximately 56 to approximately 70.\",\n      \"tags\": [\"embeddings\", \"system\"]\n    },\n    {\n      \"id\": \"q05\",\n      \"question\": \"What is Reciprocal Rank Fusion and how is it used in the retrieval pipeline?\",\n      \"ground_truth\": \"Reciprocal Rank Fusion (RRF) is a technique for merging multiple ranked lists. For each document, RRF computes a score of sum(1 / (k + rank_i)) where k=60 is a smoothing constant and rank_i is the document's rank in each list. In GraphRAG++, RRF merges the BM25 sparse retrieval rankings with the cosine dense retrieval rankings to produce a hybrid score that benefits from both semantic and keyword matching.\",\n      \"tags\": [\"retrieval\", \"rrf\"]\n    },\n    {\n      \"id\": \"q06\",\n      \"question\": \"What is the chunk store and what data does it currently contain?\",\n      \"ground_truth\": \"The chunk store is a passage store that holds raw text windows with their embeddings for cosine similarity search. It currently contains approximately 993 chunks sourced primarily from the Claude Mythos Preview System Card PDF. Each chunk stores an id, text, source filename, page number, and embedding vector.\",\n      \"tags\": [\"chunk_store\", \"data\"]\n    },\n    {\n      \"id\": \"q07\",\n      \"question\": \"How does multi-hop graph traversal work in GraphRAG++?\",\n      \"ground_truth\": \"Multi-hop graph traversal starts from seed nodes found by semantic node matching. It performs BFS (Breadth-First Search) combined with PageRank scoring across the NetworkX MultiDiGraph, exploring up to 2 hops for factual queries and 3 hops for multi-hop queries, returning up to 8 paths. Each path is a sequence of entity-relation-entity triples that forms a chain of evidence.\",\n      \"tags\": [\"graph\", \"traversal\"]\n    },\n    {\n      \"id\": \"q",
+      "total_ms": 3303,
+      "llm_source": "gemini+fallback",
+      "passages_used": 5,
+      "paths_found": 8
+    }
+  ]
+}

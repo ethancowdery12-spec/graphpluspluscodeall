@@ -1,0 +1,397 @@
+{
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\check_vol.py": {
+    "mtime": 1776983976.2816691,
+    "ast_hash": "f865b26dfa5f2a839c345a19e67bb58d",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\chunk_mythos.py": {
+    "mtime": 1778761562.5376055,
+    "ast_hash": "b9808e0e55fad33336f23be9a1072858",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\deploy.ps1": {
+    "mtime": 1775733641.5225892,
+    "ast_hash": "84d729cc7d352e966461c9b28ff15ff9",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\download_model.py": {
+    "mtime": 1778284683.8387468,
+    "ast_hash": "9b642125c3981b0c430cdbea1ada98b0",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\finetune_modal.py": {
+    "mtime": 1778284708.7826304,
+    "ast_hash": "93b16fd7e45222214bcc5a30bb647e27",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\fix_gguf.py": {
+    "mtime": 1777331515.7300572,
+    "ast_hash": "95eba0022b24a5ffa8b80a60d12f2ef2",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\fix_gguf_v2.py": {
+    "mtime": 1778243425.1992056,
+    "ast_hash": "76e305a98a2cafb386beeac474073101",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\get_logs.py": {
+    "mtime": 1775918913.1375241,
+    "ast_hash": "851329178c0ac27d7a23e1786e324b0c",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\local_ui.py": {
+    "mtime": 1777603100.3305953,
+    "ast_hash": "43d33c91d7916f20e392b15af28a7116",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\patch_gguf.py": {
+    "mtime": 1777602099.2869513,
+    "ast_hash": "f678feddd34a58f5f9bcba705bc854ca",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\patch_header.py": {
+    "mtime": 1777348556.543521,
+    "ast_hash": "b9374888fcbaae5b0d9c98bef5b151ad",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\setup_and_run.ps1": {
+    "mtime": 1777293665.3302019,
+    "ast_hash": "a8254acccfd94e5c21245516ca527c9f",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\start.ps1": {
+    "mtime": 1778243610.4494011,
+    "ast_hash": "7f2fcda2b0d87d4a19e0b83acf9eaa9b",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\test_local.py": {
+    "mtime": 1777600368.442333,
+    "ast_hash": "7ab0614ce576fa1bd24655150096717a",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\test_tok.py": {
+    "mtime": 1775939958.1905622,
+    "ast_hash": "64d5f1d86d7e3212bc7789542bad40d9",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\training_data.py": {
+    "mtime": 1777158848.867483,
+    "ast_hash": "12666362adc3b0f4dc8e9510d154a435",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\update_llama.ps1": {
+    "mtime": 1777328548.0358663,
+    "ast_hash": "28946fcb4730af3d9b9ccc536752f06f",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\upload_to_hf.py": {
+    "mtime": 1776863232.2462215,
+    "ast_hash": "525dd5d16815a5d19e394d15c38c87c0",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\backend\\main.py": {
+    "mtime": 1778761542.093772,
+    "ast_hash": "9994b959f46756be4ca440e39862b535",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\backend\\models.py": {
+    "mtime": 1778762034.8638117,
+    "ast_hash": "a5812a2627391f8b3fbc4f1fc9ad579d",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\backend\\test_all.py": {
+    "mtime": 1778629700.6340666,
+    "ast_hash": "c138a366d2e8eadcdd75b9c8515fa4cc",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\backend\\data\\chunk_store.json": {
+    "mtime": 1778765529.0776498,
+    "ast_hash": "bef4feed299c2ac76e258425c6e60614",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\backend\\data\\graph_store.json": {
+    "mtime": 1778737794.330299,
+    "ast_hash": "14792acf8d5800aaa960320dca8b718d",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\backend\\pipeline\\chunk_store.py": {
+    "mtime": 1778761345.3660917,
+    "ast_hash": "257a49833e538ad3fed44c058b801fa7",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\backend\\pipeline\\code_extractor.py": {
+    "mtime": 1778629533.5511694,
+    "ast_hash": "a102100be47cb08af13484e4e2f52974",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\backend\\pipeline\\dir_walker.py": {
+    "mtime": 1778628079.2903888,
+    "ast_hash": "3ed171149ed3f70259159a6070881ddf",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\backend\\pipeline\\embedder.py": {
+    "mtime": 1775678537.1990383,
+    "ast_hash": "452728daafc3b1484830ab3028bdc500",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\backend\\pipeline\\extractor.py": {
+    "mtime": 1778711813.4762988,
+    "ast_hash": "70b6a67da85d9f0f55d168bacf50747d",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\backend\\pipeline\\file_router.py": {
+    "mtime": 1778761382.6861022,
+    "ast_hash": "878fb8489d6b057408f96e218ab5a311",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\backend\\pipeline\\graph_builder.py": {
+    "mtime": 1778642492.205506,
+    "ast_hash": "63040f584258d4c19b167f501484b250",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\backend\\pipeline\\llm.py": {
+    "mtime": 1778640549.5969043,
+    "ast_hash": "c3fa52c18466332a56558a860ad5c621",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\backend\\pipeline\\persistence.py": {
+    "mtime": 1778627965.5674956,
+    "ast_hash": "11e1068cf113d684ae983ffcf3ca24ab",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\backend\\pipeline\\query_engine.py": {
+    "mtime": 1778801327.0186718,
+    "ast_hash": "308587ccbb72abe006d678a8c136a3a5",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\backend\\pipeline\\sample_data.py": {
+    "mtime": 1778675883.1139584,
+    "ast_hash": "67cf91a0d2c1cc16b6e77ab34e3aa459",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\backend\\pipeline\\__init__.py": {
+    "mtime": 1775678644.3925228,
+    "ast_hash": "8598b1237ff8bcb0bdb77504ba33ca38",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\frontend\\next-env.d.ts": {
+    "mtime": 1775681941.2978249,
+    "ast_hash": "d0f8375ae1199dc7acd3977fc33b78b8",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\frontend\\next.config.js": {
+    "mtime": 1775681629.7499683,
+    "ast_hash": "0132eeefb5ff8064d41209d88283558a",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\frontend\\next.config.ts": {
+    "mtime": 1775678414.825029,
+    "ast_hash": "9b77af189a21a7a64e4bd7a426f64176",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\frontend\\package.json": {
+    "mtime": 1775680977.0944648,
+    "ast_hash": "21e9964643d42b65ae32db3b989d2f1a",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\frontend\\tsconfig.json": {
+    "mtime": 1775678415.1095037,
+    "ast_hash": "ee17fd1c97c735e9f3564e3f5251f125",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\frontend\\src\\app\\layout.tsx": {
+    "mtime": 1775681039.8017943,
+    "ast_hash": "d19b604a101ffdfb12925dfa0f32ba73",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\frontend\\src\\app\\page.tsx": {
+    "mtime": 1778507258.1145072,
+    "ast_hash": "725257ba8580989cb175e4c3fa760d29",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\frontend\\src\\app\\analytics\\page.tsx": {
+    "mtime": 1775681538.6913798,
+    "ast_hash": "86e969508180c83e8c09f975c73f04b0",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\frontend\\src\\app\\graph\\page.tsx": {
+    "mtime": 1778642472.4139986,
+    "ast_hash": "4e7db2a98c4e94bb4a7db1ed596388e4",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\frontend\\src\\app\\ingest\\page.tsx": {
+    "mtime": 1778678167.50964,
+    "ast_hash": "e6b851f943c7029efdc0dc5f2651fd3b",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\frontend\\src\\app\\query\\page.tsx": {
+    "mtime": 1778763645.4889066,
+    "ast_hash": "2c9531fd7e4e57eabbc422ba910e7a14",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\frontend\\src\\components\\GraphViewer.tsx": {
+    "mtime": 1778725184.44782,
+    "ast_hash": "0595e973e25174dcf09717d4bf514741",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\frontend\\src\\components\\InferenceLoader.tsx": {
+    "mtime": 1778763229.0928192,
+    "ast_hash": "26288bbf62e03203514a4b6cc48e8d66",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\frontend\\src\\components\\IngestPanel.tsx": {
+    "mtime": 1778628292.660838,
+    "ast_hash": "9d149c60975580d058de9a22ddf8185e",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\frontend\\src\\components\\MiniChart.tsx": {
+    "mtime": 1775681269.4622014,
+    "ast_hash": "da0e4a9595abb7f93805adbca120c12c",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\frontend\\src\\components\\NavBar.tsx": {
+    "mtime": 1775681132.7976344,
+    "ast_hash": "216fae84bbd5f2e3151a0e854d935b6e",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\frontend\\src\\lib\\api.ts": {
+    "mtime": 1778763199.4411376,
+    "ast_hash": "a8ea7e2284aff164b037bea51ec798fd",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\inference\\inference_server.py": {
+    "mtime": 1775736900.6249044,
+    "ast_hash": "cb5e306508fb97221aa9afcf03aaf93b",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\inference\\local_server.py": {
+    "mtime": 1775942456.9923024,
+    "ast_hash": "2e4c61c444e08f5be7cd699107c66a2a",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\inference\\modal_server.py": {
+    "mtime": 1776863231.4378493,
+    "ast_hash": "b0752586bdd08c0c0f05fa2c4c0a228f",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\inference\\runpod_handler.py": {
+    "mtime": 1775941772.8358476,
+    "ast_hash": "e792df262b6c3f470f2acffb6ea71d03",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\check_out.txt": {
+    "mtime": 1776983986.4932318,
+    "ast_hash": "f9ae175d5e17b4057eac13a6cd944095",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\CLAUDE.md": {
+    "mtime": 1778806330.630103,
+    "ast_hash": "9cf612e2c5e6ea2e115d70af8b837903",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\docker-compose.yml": {
+    "mtime": 1775681567.7596853,
+    "ast_hash": "daa98c2cd03e7439e1c618d83958e982",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\fixed_logs.txt": {
+    "mtime": 1775918784.5101993,
+    "ast_hash": "6c46716a765759b7cd58301f79742b09",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\latest_modal_logs.txt": {
+    "mtime": 1777164680.4827793,
+    "ast_hash": "744f255b98d2496b75921a54d1891c5d",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\linenoise.cpp.txt": {
+    "mtime": 1741032106.0,
+    "ast_hash": "214cc483e9016d246b7133195b89ab1c",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\llama.cpp.txt": {
+    "mtime": 1741032106.0,
+    "ast_hash": "d0de4d9c90e34ab149eadc74bca52623",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\logs.txt": {
+    "mtime": 1775940700.2034495,
+    "ast_hash": "d5893ebc40abfa2072c91aaec928159b",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\modal_crash.txt": {
+    "mtime": 1775918196.3500345,
+    "ast_hash": "a5543a4c4449495151d7fca373d22d94",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\modal_logs.txt": {
+    "mtime": 1775913911.1724234,
+    "ast_hash": "10d6478f86a446dc0f7f772a0d7ed40a",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\modal_tail.txt": {
+    "mtime": 1775918204.6583686,
+    "ast_hash": "11ee9fb10a2e57e78a9f4723f60512be",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\patch_out.txt": {
+    "mtime": 1777602733.7990608,
+    "ast_hash": "19a6d08e52e2ae79a4f4b2cf7408a495",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\research.html": {
+    "mtime": 1778815455.2969475,
+    "ast_hash": "ff8173be6a29640f7f1cf8d6d43cce3a",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\backend\\requirements.txt": {
+    "mtime": 1778675428.441061,
+    "ast_hash": "feccc4cf49de98b9d252f256a7e0a99e",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\frontend\\AGENTS.md": {
+    "mtime": 1775678823.8130562,
+    "ast_hash": "9e09241799026ac05be315a2f0b50055",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\frontend\\CLAUDE.md": {
+    "mtime": 1775678823.8136058,
+    "ast_hash": "5c27369b226fcf2be8a6cfe52224e767",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\frontend\\README.md": {
+    "mtime": 1775678414.5718317,
+    "ast_hash": "f15aaa42d5d299d091b1171097ea56ad",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\inference\\requirements.txt": {
+    "mtime": 1775732003.831605,
+    "ast_hash": "ec2386871ea6033e065fb402330f440c",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\frontend\\public\\file.svg": {
+    "mtime": 1775678414.6967614,
+    "ast_hash": "d09f95206c3fa0bb9bd9fefabfd0ea71",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\frontend\\public\\globe.svg": {
+    "mtime": 1775678414.7160099,
+    "ast_hash": "2aaafa6a49b6563925fe440891e32717",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\frontend\\public\\next.svg": {
+    "mtime": 1775678414.7360106,
+    "ast_hash": "8e061864f388b47f33a1c3780831193e",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\frontend\\public\\vercel.svg": {
+    "mtime": 1775678414.7560885,
+    "ast_hash": "c0af2f507b369b085b35ef4bbe3bcf1e",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\ethan\\OneDrive\\Desktop\\GraphRAG\\frontend\\public\\window.svg": {
+    "mtime": 1775678414.775347,
+    "ast_hash": "a2760511c65806022ad20adf74370ff3",
+    "semantic_hash": ""
+  }
+}

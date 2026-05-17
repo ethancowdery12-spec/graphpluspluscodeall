@@ -26,6 +26,7 @@ export interface GraphEdge {
   predicate: string
   confidence: number
   weight: number
+  confidence_tier: 'EXTRACTED' | 'INFERRED' | 'AMBIGUOUS'
 }
 
 export interface GraphStats {
@@ -37,6 +38,15 @@ export interface GraphStats {
   ingestion_count: number
   query_count: number
   entity_types: Record<string, number>
+  file_count: number
+  confidence_breakdown: Record<string, number>
+}
+
+export interface PassageHit {
+  text:   string
+  source: string
+  page:   number
+  score:  number
 }
 
 export interface QueryResult {
@@ -46,6 +56,7 @@ export interface QueryResult {
   intent: { intent: string; entities: string[]; confidence: number }
   steps: PipelineStep[]
   paths: HopPath[][]
+  passages: PassageHit[]
   total_ms: number
   source: string
   provenance: Provenance[]
@@ -79,8 +90,22 @@ export interface IngestResult {
   nodes_added: number
   edges_added: number
   version: number
-  triples: Array<{ subject: string; predicate: string; object: string; confidence: number }>
+  triples: Array<{
+    subject: string; predicate: string; object: string
+    confidence: number; confidence_tier: string
+  }>
   source: string
+  already_ingested?: boolean
+}
+
+export interface IngestDirResult {
+  status: string
+  files_processed: number
+  files_skipped: number
+  triples_total: number
+  nodes_added: number
+  edges_added: number
+  version: number
 }
 
 // ─── API functions ───────────────────────────────────────────────────────────
@@ -141,10 +166,11 @@ export async function ingestText(text: string, source = 'manual'): Promise<Inges
   return res.json()
 }
 
-export async function ingestFile(file: File): Promise<IngestResult> {
+export async function ingestFile(file: File, force = false): Promise<IngestResult> {
   const form = new FormData()
   form.append('file', file)
-  const res = await fetch(`${API_BASE}/ingest/file`, { method: 'POST', body: form })
+  const url = force ? `${API_BASE}/ingest/file?force=true` : `${API_BASE}/ingest/file`
+  const res = await fetch(url, { method: 'POST', body: form })
   if (!res.ok) throw new Error('File ingestion failed')
   return res.json()
 }
@@ -153,6 +179,39 @@ export async function reseedGraph(): Promise<unknown> {
   const res = await fetch(`${API_BASE}/ingest/seed`, { method: 'POST' })
   if (!res.ok) throw new Error('Reseed failed')
   return res.json()
+}
+
+export async function ingestDirectory(path: string): Promise<IngestDirResult> {
+  const res = await fetch(`${API_BASE}/ingest/directory`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path }),
+  })
+  if (!res.ok) {
+    const err = await res.text().catch(() => res.statusText)
+    throw new Error(`Directory ingestion failed: ${err}`)
+  }
+  return res.json()
+}
+
+/** Upload multiple files sequentially, returning an array of results. Per-file errors are passed to onError and skipped. */
+export async function ingestFiles(
+  files: File[],
+  onProgress?: (done: number, total: number, filename: string) => void,
+  onError?: (filename: string, error: string) => void,
+): Promise<IngestResult[]> {
+  const results: IngestResult[] = []
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i]
+    onProgress?.(i, files.length, file.name)
+    try {
+      results.push(await ingestFile(file))
+    } catch (e) {
+      onError?.(file.name, e instanceof Error ? e.message : String(e))
+    }
+  }
+  onProgress?.(files.length, files.length, '')
+  return results
 }
 
 export async function fetchMetrics() {

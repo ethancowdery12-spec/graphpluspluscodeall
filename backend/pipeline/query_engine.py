@@ -329,7 +329,7 @@ async def query(question: str, on_step=None, on_token=None) -> dict:
         gen_result = {"answer": "", "thinking": "", "source": "shortcut"}
     else:
         gen_result = await call_llm(
-            gen_input, instruction=gen_instruction, max_tokens=512,
+            gen_input, instruction=gen_instruction, max_tokens=2048,
             on_token=on_token,
             extra_stop=["### Response:", "### Instruction:", "Source passages:"],
         )
@@ -489,7 +489,7 @@ async def query(question: str, on_step=None, on_token=None) -> dict:
             refined = await call_llm(
                 f"Source passages:\n{passage_text[:2500]}",
                 instruction=refine_instruction,
-                max_tokens=512,
+                max_tokens=2048,
                 on_token=on_token,
                 extra_stop=["### Response:", "### Instruction:", "Source passages:"],
             )

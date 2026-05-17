@@ -94,3 +94,13 @@ embeddings_cache/
 
 # ── Local-only Claude session artifacts ──────────────────────────────────────
 .claude/settings.local.json
+.claude/
+.claire/
+
+# ── Runtime data (regenerated on startup) ────────────────────────────────────
+backend/data/chunk_store.json
+backend/data/graph_store.json
+
+# ── Test artifacts ────────────────────────────────────────────────────────────
+backend/test_image.png
+backend/test_pkg.zip

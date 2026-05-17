@@ -28,6 +28,9 @@ export default function QueryPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [graphData, setGraphData] = useState<GraphData | null>(null)
+  const [showGraph, setShowGraph] = useState(false)
+  const [graphLoading, setGraphLoading] = useState(false)
+  const [backendUp, setBackendUp] = useState<boolean | null>(null)   // null = checking
   const [activeStep, setActiveStep] = useState<number>(0)
   // Live token-stream stats from the backend's `generation_token` WS events
   const [tokenStats, setTokenStats] = useState<{
@@ -54,10 +57,11 @@ export default function QueryPage() {
         if (d.event === 'pipeline_step' && d.data?.step) {
           const STEP_ORDER: Record<string, number> = {
             intent_classification: 0,
-            node_matching: 1,
-            graph_traversal: 2,
-            context_fusion: 3,
-            generation: 4,
+            node_matching:         1,
+            passage_retrieval:     2,
+            graph_traversal:       3,
+            context_fusion:        4,
+            generation:            5,
           }
           const idx = STEP_ORDER[d.data.step]
           if (idx !== undefined) {
@@ -88,7 +92,7 @@ export default function QueryPage() {
     setActiveStep(0)
 
     // Estimated step durations (ms). Generation is open-ended.
-    const durations = [950, 750, 850, 650, 99_999]
+    const durations = [950, 750, 300, 850, 650, 99_999]
     const timers: ReturnType<typeof setTimeout>[] = []
     let cumulative = 0
 
@@ -106,10 +110,21 @@ export default function QueryPage() {
     return () => timers.forEach(clearTimeout)
   }, [loading])
 
-  // Load graph on mount so the visualization is ready immediately
+  // Health-check on mount (no graph fetch — opt-in only)
   useEffect(() => {
-    fetchGraph().then(setGraphData).catch(() => {/* silently ignore — graph stays hidden */})
+    fetch('http://localhost:8000/health')
+      .then(r => setBackendUp(r.ok))
+      .catch(() => setBackendUp(false))
   }, [])
+
+  // Fetch graph when user opts in, or refresh after query completes if already shown
+  useEffect(() => {
+    if (!showGraph) return
+    setGraphLoading(true)
+    fetchGraph()
+      .then(d => { setGraphData(d); setGraphLoading(false) })
+      .catch(() => setGraphLoading(false))
+  }, [showGraph])
 
   const submit = async (q = question) => {
     if (!q.trim() || loading) return
@@ -118,15 +133,19 @@ export default function QueryPage() {
     setResult(null)
     setTokenStats({ tokens: 0, tokensPerSec: 0, preview: '' })
 
-    // Refresh graph data for path highlighting after query completes
-    fetchGraph().then(setGraphData).catch(() => {/* non-fatal */})
+    // Refresh graph for path highlighting only if user has opted in
+    if (showGraph) fetchGraph().then(setGraphData).catch(() => {/* non-fatal */})
 
     try {
       const r = await runQuery(q)
       setResult(r)
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      setError(`${msg} (Is the backend running at http://localhost:8000?)`)
+      const raw = e instanceof Error ? e.message : String(e)
+      const isDown = raw.toLowerCase().includes('failed to fetch') || raw.includes('ECONNREFUSED')
+      setError(isDown
+        ? '🔴 Backend not reachable at http://localhost:8000 — run: cd backend && uvicorn main:app --host 0.0.0.0 --port 8000'
+        : raw
+      )
     } finally {
       setLoading(false)
     }
@@ -147,9 +166,27 @@ export default function QueryPage() {
       }}>
         {/* Input */}
         <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border)' }}>
-          <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ background: 'var(--grad-text)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>⚡ Multi-hop Query Engine</span>
+            <span style={{
+              marginLeft: 'auto', fontSize: '0.7rem', fontWeight: 500,
+              color: backendUp === null ? 'var(--text-muted)' : backendUp ? '#34d399' : '#f87171',
+              fontFamily: 'var(--font-mono)',
+            }}>
+              {backendUp === null ? '○ checking…' : backendUp ? '● backend online' : '● backend offline'}
+            </span>
           </h2>
+          {backendUp === false && (
+            <div style={{
+              background: '#f8717122', border: '1px solid #f8717144', borderRadius: 8,
+              padding: '0.6rem 0.875rem', fontSize: '0.78rem', color: '#fca5a5', marginBottom: '0.75rem',
+            }}>
+              Backend not running. Start it with:<br />
+              <code style={{ fontFamily: 'var(--font-mono)', color: '#f87171' }}>
+                cd backend &amp;&amp; uvicorn main:app --host 0.0.0.0 --port 8000
+              </code>
+            </div>
+          )}
           <textarea
             ref={textareaRef}
             id="query-input"
@@ -277,12 +314,50 @@ export default function QueryPage() {
 
             <div className="answer-block">{result.answer}</div>
 
-            {/* Path provenance */}
-            {result.provenance.length > 0 && (
+            {/* Retrieved passages */}
+            {result.passages?.length > 0 && (
+              <div style={{ marginTop: '1rem' }}>
+                <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+                  📄 Retrieved Passages ({result.passages.length})
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  {result.passages.map((p, i) => (
+                    <details key={i} style={{ background: 'var(--bg-base)', borderRadius: 6, border: '1px solid var(--border)' }}>
+                      <summary style={{
+                        cursor: 'pointer', padding: '0.4rem 0.6rem',
+                        fontSize: '0.72rem', color: 'var(--text-muted)',
+                        display: 'flex', alignItems: 'center', gap: '0.5rem',
+                      }}>
+                        <span style={{ color: 'var(--cyan)', fontFamily: 'var(--font-mono)' }}>
+                          p.{p.page}
+                        </span>
+                        <span style={{ color: 'var(--green)', fontFamily: 'var(--font-mono)' }}>
+                          {(p.score * 100).toFixed(0)}%
+                        </span>
+                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {p.text.slice(0, 60).trim()}…
+                        </span>
+                      </summary>
+                      <div style={{
+                        padding: '0.5rem 0.6rem', fontSize: '0.75rem',
+                        color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)',
+                        whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                        borderTop: '1px solid var(--border)',
+                      }}>
+                        {p.text}
+                      </div>
+                    </details>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Path provenance — only show high-confidence, clean paths */}
+            {result.provenance.filter(p => p.confidence >= 0.70).length > 0 && (
               <div style={{ marginTop: '1rem' }}>
                 <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Path Provenance</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                  {result.provenance.map(p => (
+                  {result.provenance.filter(p => p.confidence >= 0.70).map(p => (
                     <div key={p.path_id} className="path-item">
                       <span style={{ color: 'var(--text-muted)' }}>Path {p.path_id} ({p.hops}h, {(p.confidence * 100).toFixed(0)}%): </span>
                       {p.entities.map((e, i) => (
@@ -299,21 +374,52 @@ export default function QueryPage() {
           </div>
         )}
 
-        {/* Graph Visualization */}
+        {/* Graph Visualization — opt-in */}
         <div style={{ flex: 1, position: 'relative', background: 'var(--bg-base)' }}>
-          <div className="graph-badge">
-            {result
-              ? `Highlighted: ${highlightPaths.flat().length} nodes across ${result.paths.length} paths`
-              : graphData
-              ? `${graphData.nodes.length} nodes · ${graphData.edges.length} edges`
-              : 'Loading graph…'}
-          </div>
-          {graphData ? (
-            <GraphViewer data={graphData} highlightPaths={highlightPaths} />
+          {/* Toggle button always visible */}
+          <button
+            onClick={() => setShowGraph(v => !v)}
+            style={{
+              position: 'absolute', top: 10, right: 10, zIndex: 10,
+              padding: '0.3rem 0.75rem', borderRadius: 6, border: '1px solid var(--border-accent)',
+              background: showGraph ? 'var(--cyan-dim)' : 'var(--bg-surface)',
+              color: showGraph ? 'var(--cyan)' : 'var(--text-muted)',
+              fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer',
+              fontFamily: 'var(--font-sans)', transition: 'all 0.15s',
+            }}
+          >
+            {showGraph ? '🕸️ Hide Graph' : '🕸️ Show Graph'}
+          </button>
+
+          {showGraph ? (
+            <>
+              <div className="graph-badge">
+                {result
+                  ? `Highlighted: ${highlightPaths.flat().length} nodes across ${result.paths.length} paths`
+                  : graphData
+                  ? `${graphData.nodes.length} nodes · ${graphData.edges.length} edges`
+                  : 'Loading graph…'}
+              </div>
+              {graphLoading || !graphData ? (
+                <div className="graph-loading">
+                  <div className="spinner" style={{ width: 32, height: 32, borderWidth: 2.5 }} />
+                  <span>Loading knowledge graph…</span>
+                </div>
+              ) : (
+                <GraphViewer data={graphData} highlightPaths={highlightPaths} />
+              )}
+            </>
           ) : (
-            <div className="graph-loading">
-              <div className="spinner" style={{ width: 32, height: 32, borderWidth: 2.5 }} />
-              <span>Loading knowledge graph…</span>
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              justifyContent: 'center', height: '100%', gap: '0.75rem',
+              color: 'var(--text-muted)',
+            }}>
+              <span style={{ fontSize: '2rem' }}>🕸️</span>
+              <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Graph hidden</span>
+              <span style={{ fontSize: '0.75rem', textAlign: 'center', maxWidth: 260, lineHeight: 1.5 }}>
+                Toggle "Show Graph" to visualise the knowledge graph and query paths. Hidden by default to save GPU compute.
+              </span>
             </div>
           )}
         </div>
@@ -333,6 +439,7 @@ function MetaPanel({ result }: { result: QueryResult }) {
           ['Intent', result.intent.intent],
           ['Confidence', `${(result.intent.confidence * 100).toFixed(0)}%`],
           ['Paths Found', result.paths.length],
+          ['Passages', (result.passages?.length ?? 0) + ' chunks'],
           ['Provenance', result.provenance.length + ' paths'],
         ].map(([k, v]) => (
           <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0', borderBottom: '1px solid var(--border)' }}>

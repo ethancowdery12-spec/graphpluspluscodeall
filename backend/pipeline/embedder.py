@@ -1,6 +1,8 @@
 """
 Embedding Service — Sentence Transformers + FAISS hybrid index.
+Default model: BAAI/bge-m3 (MTEB ~70, 1024-dim, hybrid dense+sparse).
 Falls back to random embeddings if torch/sentence-transformers unavailable.
+Set EMBED_MODEL env var to override (e.g. all-MiniLM-L6-v2 for fast dev).
 """
 import os
 import math
@@ -11,9 +13,22 @@ from typing import List, Dict, Optional, Tuple
 _model = None
 _index = None
 _index_ids: List[str] = []
-_dim = 384  # all-MiniLM-L6-v2 dimension
+_dim = 1024  # BAAI/bge-m3 dimension (updated from 384)
 
-MODEL_NAME = os.getenv("EMBED_MODEL", "all-MiniLM-L6-v2")
+# HNSW tuning knobs — raise efSearch at query time for higher recall at cost of speed
+_HNSW_M = 32               # bi-directional links per node (16–64; 32 is a safe default)
+_HNSW_EF_CONSTRUCTION = 200  # beam width during graph construction (higher → better recall)
+_HNSW_EF_SEARCH = 64        # beam width during search (can be overridden per query)
+
+# BGE-M3 retrieval query prefix — improves dense retrieval recall
+_BGE_QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
+
+MODEL_NAME = os.getenv("EMBED_MODEL", "BAAI/bge-m3")
+
+
+def get_embedding_dim() -> int:
+    """Return the current embedding dimension (depends on loaded model)."""
+    return _dim
 
 
 def _load_model():
@@ -37,8 +52,9 @@ def _load_index():
         return _index
     try:
         import faiss
-        _index = faiss.IndexFlatIP(_dim)  # Inner product (cosine after normalize)
-        print(f"[Embedder] FAISS index ready (dim={_dim})")
+        _index = faiss.IndexHNSWFlat(_dim, _HNSW_M, faiss.METRIC_INNER_PRODUCT)
+        _index.hnsw.efConstruction = _HNSW_EF_CONSTRUCTION
+        print(f"[Embedder] FAISS HNSW index ready (dim={_dim}, M={_HNSW_M}, efC={_HNSW_EF_CONSTRUCTION})")
     except Exception as e:
         print(f"[Embedder] FAISS not available: {e}. Using brute-force search.")
         _index = None
@@ -46,7 +62,7 @@ def _load_index():
 
 
 async def embed_text(texts: List[str]) -> List[List[float]]:
-    """Embed a list of texts. Returns list of embedding vectors."""
+    """Embed a list of document/passage texts. Returns normalized vectors."""
     model = _load_model()
     if model is None:
         return [_random_embedding(_dim) for _ in texts]
@@ -58,8 +74,16 @@ async def embed_text(texts: List[str]) -> List[List[float]]:
 
 
 async def embed_query(query: str) -> List[float]:
-    """Embed a single query string."""
-    results = await embed_text([query])
+    """Embed a single query string with the BGE retrieval prefix."""
+    model = _load_model()
+    if model is None:
+        return _random_embedding(_dim)
+
+    # Use retrieval prefix for BGE-M3 (no-op for other models that ignore it)
+    prefixed = _BGE_QUERY_PREFIX + query if "bge" in MODEL_NAME.lower() else query
+    results = await asyncio.to_thread(
+        lambda: model.encode([prefixed], normalize_embeddings=True).tolist()
+    )
     return results[0]
 
 
@@ -68,12 +92,18 @@ def add_to_index(node_id: str, embedding: List[float]):
     global _index_ids
     import numpy as np
 
+    # Ensure model is loaded so _dim is set correctly before index creation
+    _load_model()
+
     idx = _load_index()
     if idx is None:
         return
 
+    # Reject mismatched embeddings (stale 384-dim from old model)
+    if len(embedding) != _dim:
+        return
+
     vec = np.array([embedding], dtype=np.float32)
-    # Normalize for cosine similarity
     norm = math.sqrt(sum(x * x for x in embedding))
     if norm > 0:
         vec = vec / norm
@@ -90,6 +120,10 @@ def search_index(query_embedding: List[float], k: int = 10) -> List[Tuple[str, f
     if idx is None or not _index_ids:
         return []
 
+    if len(query_embedding) != _dim:
+        return []
+
+    idx.hnsw.efSearch = _HNSW_EF_SEARCH
     vec = np.array([query_embedding], dtype=np.float32)
     distances, indices = idx.search(vec, min(k, len(_index_ids)))
 
