@@ -11,6 +11,7 @@ Routes:
 """
 import hashlib
 import logging
+import shutil
 import tempfile
 import asyncio
 from pathlib import Path
@@ -25,7 +26,7 @@ logger = logging.getLogger(__name__)
 TEXT_EXTENSIONS = {".md", ".txt", ".rst", ".csv", ".json", ".yaml", ".yml", ".toml", ".html", ".ipynb"}
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"}
 MAX_ZIP_DEPTH = 2
-MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
 async def route_file(

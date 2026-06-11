@@ -14,7 +14,7 @@ import hashlib
 import logging
 import os
 import tempfile
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +24,7 @@ MAX_CHUNKS_PER_CALL = 600
 
 _store: Optional["ChunkStore"] = None
 _RRF_K = 60  # RRF constant — higher = smoother fusion, lower = rank-1 dominates
+DEDUP_COSINE_THRESHOLD = 0.97  # skip new chunks whose embedding is this similar to an existing one
 
 
 def get_chunk_store() -> "ChunkStore":
@@ -43,7 +44,7 @@ class ChunkStore:
         self._chunks: List[dict] = []
         self._source_set: set = set()
         self._chunk_id_set: set = set()  # O(1) dedup across the full store
-        self._bm25 = None          # lazy-built BM25Okapi index
+        self._bm25 = None          # lazy-built BM25Plus index
         self._bm25_dirty = True    # rebuild BM25 on next search
 
     # ── Text splitting ─────────────────────────────────────────────────────────
@@ -90,6 +91,8 @@ class ChunkStore:
             ).hexdigest()[:12]
             if chunk_id in self._chunk_id_set:
                 continue
+            if emb and self._is_near_duplicate(emb):
+                continue
             self._chunk_id_set.add(chunk_id)
             self._chunks.append({
                 "id":        chunk_id,
@@ -115,9 +118,9 @@ class ChunkStore:
         if not self._bm25_dirty and self._bm25 is not None:
             return
         try:
-            from rank_bm25 import BM25Okapi
+            from rank_bm25 import BM25Plus
             corpus = [_tokenize(c["text"]) for c in self._chunks]
-            self._bm25 = BM25Okapi(corpus)
+            self._bm25 = BM25Plus(corpus)
             self._bm25_dirty = False
         except ImportError:
             logger.warning("[ChunkStore] rank_bm25 not installed — BM25 disabled")
@@ -202,7 +205,7 @@ class ChunkStore:
         bm25_rank  = {c["id"]: i + 1 for i, c in enumerate(bm25_results)}
 
         # Collect all unique chunks from both retrievers
-        all_ids: dict[str, dict] = {}
+        all_ids: Dict[str, dict] = {}
         for c in dense_results + bm25_results:
             all_ids.setdefault(c["id"], c)
 
@@ -224,6 +227,118 @@ class ChunkStore:
 
         rrf_scores.sort(key=lambda x: x[0], reverse=True)
         return [c for _, c in rrf_scores[:top_k]]
+
+    # ── Direct word search / fast paths ──────────────────────────────────────
+
+    def exact_phrase_search(self, phrase: str) -> List[dict]:
+        """Return all chunks containing *phrase* as a verbatim substring (case-insensitive)."""
+        needle = phrase.lower().strip()
+        if not needle:
+            return []
+        return [c for c in self._chunks if needle in c["text"].lower()]
+
+    def bm25_fast_path(self, query_text: str, z_threshold: float = 2.5) -> Optional[dict]:
+        """Return the top BM25 result if its score is z_threshold std-devs above the mean.
+
+        When one document contains the exact terminology of the query and the rest do not,
+        the top BM25 score is a clear outlier — we can skip dense retrieval and reranking
+        entirely and return this hit as the sole passage.  Returns None when the scores are
+        too close together to indicate a confident single-document match.
+        """
+        if len(self._chunks) < 5:
+            return None
+        self._ensure_bm25()
+        if self._bm25 is None:
+            return None
+        tokens = _tokenize(query_text)
+        if not tokens:
+            return None
+        scores = self._bm25.get_scores(tokens)
+        positive = [s for s in scores if s > 0.0]
+        if not positive:
+            return None
+        top_idx = max(range(len(scores)), key=lambda i: scores[i])
+        # With 1-2 positive scores the entire corpus matched on nothing except
+        # this one document — that IS the strongest possible specificity signal.
+        if len(positive) <= 2:
+            return {**self._chunks[top_idx],
+                    "bm25_score": float(scores[top_idx]),
+                    "bm25_z": 99.0}
+        mean = sum(positive) / len(positive)
+        variance = sum((s - mean) ** 2 for s in positive) / len(positive)
+        std = math.sqrt(variance)
+        if std < 1e-6:
+            return None
+        z = (scores[top_idx] - mean) / std
+        if z >= z_threshold:
+            return {**self._chunks[top_idx],
+                    "bm25_score": float(scores[top_idx]),
+                    "bm25_z": round(z, 2)}
+        return None
+
+    def has_relevant_content(self, query_text: str, query_embedding: List[float],
+                              bm25_min: float = 0.5, cosine_min: float = 0.25) -> bool:
+        """Return False when the corpus has no content relevant to this query.
+
+        Used as an early-exit gate before the full pipeline runs — saves all
+        downstream LLM calls for out-of-domain questions.
+        """
+        if not self._chunks:
+            return False
+        hits = self.bm25_search(query_text, top_k=1)
+        if hits:
+            # BM25 returned results — check the threshold
+            if hits[0].get("bm25_score", 0.0) >= bm25_min:
+                return True
+        else:
+            # BM25 returned nothing (corpus too small for IDF to be positive, or
+            # no overlapping tokens). Fall through to cosine without counting this
+            # as a "no match" signal — the corpus may still be highly relevant.
+            pass
+        try:
+            dense = self.search(query_embedding, top_k=1)
+            if dense and dense[0].get("score", 0.0) >= cosine_min:
+                return True
+        except Exception:
+            pass
+        # Both retrievers ran and found nothing above threshold.
+        # If BM25 was unavailable (empty hits) and cosine also failed, do one
+        # last check: if the corpus is non-empty and tiny (≤ 5 chunks), trust
+        # that it was purposefully ingested and always allow the query through.
+        if not hits and len(self._chunks) <= 2:
+            return True
+        return False
+
+    def _is_near_duplicate(self, embedding: List[float]) -> bool:
+        """Return True if any of the last 200 stored chunks is cosine-similar enough
+        to count as a near-duplicate of *embedding*.
+
+        Bounded to the most-recent 200 chunks so ingestion stays fast.
+        Returns False silently when numpy is unavailable.
+        """
+        check = self._chunks[-200:]
+        if not check:
+            return False
+        try:
+            import numpy as np
+        except ImportError:
+            return False
+        q = np.array(embedding, dtype=np.float32)
+        norm_q = float(np.linalg.norm(q))
+        if norm_q < 1e-8:
+            return False
+        q_unit = q / norm_q
+        for chunk in check:
+            emb = chunk.get("embedding")
+            if not emb or len(emb) != len(embedding):
+                continue
+            v = np.array(emb, dtype=np.float32)
+            norm_v = float(np.linalg.norm(v))
+            if norm_v < 1e-8:
+                continue
+            if float(q_unit @ (v / norm_v)) >= DEDUP_COSINE_THRESHOLD:
+                return True
+        return False
 
     # ── Re-embedding support ──────────────────────────────────────────────────
 

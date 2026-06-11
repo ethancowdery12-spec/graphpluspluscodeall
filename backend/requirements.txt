@@ -1,3 +1,4 @@
+# Python >= 3.9 required (uses PEP 585 generics)
 fastapi>=0.115.2
 uvicorn[standard]>=0.30.6
 websockets>=10.0
@@ -7,20 +8,23 @@ python-dotenv>=1.0.1
 httpx>=0.27.2
 networkx>=3.3
 python-louvain>=0.16
-sentence-transformers>=3.2.1
+sentence-transformers>=3.2.1,<5.0
+# Apple Silicon (M1/M2/M3): pip wheel unavailable — use `conda install -c conda-forge faiss-cpu` instead
 faiss-cpu>=1.8.0
 huggingface-hub>=0.33.5
 gradio-client>=1.3.0
-numpy==1.26.4
-scipy==1.14.1
-torch==2.4.1
-transformers==4.46.0
-peft==0.13.2
-bitsandbytes==0.44.1
-accelerate==1.1.1
+# numpy 2.x has breaking API changes; cap at <2.0
+numpy>=1.24.0,<2.0
+scipy>=1.11.0
+torch>=2.1.0
+transformers>=4.40.0,<5.0
+peft>=0.13.2
+# bitsandbytes 0.45+ adds ARM Mac (Apple Silicon) support
+bitsandbytes>=0.44.1
+accelerate>=1.0.0
 openai>=1.14.0
 pdfplumber>=0.11.0
-rich==13.9.4
+rich>=13.0.0
 rank-bm25>=0.3.1
 tree-sitter==0.21.3
 tree-sitter-languages==1.10.2

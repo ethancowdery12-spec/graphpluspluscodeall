@@ -48,6 +48,9 @@ TIER_COLORS = {
     "AMBIGUOUS": "#f59e0b",   # amber   — regex / low-confidence LLM
 }
 
+# Confidence tier ordering — higher number = more trustworthy
+_TIER_ORDER = {"EXTRACTED": 3, "INFERRED": 2, "AMBIGUOUS": 1}
+
 RELATION_TYPES = [
     "uses", "extends", "based_on", "introduced_by", "enables", "requires",
     "part_of", "evaluates_on", "outperforms", "trained_on", "combines",
@@ -212,14 +215,18 @@ class GraphStore:
     # ─── Traversal ────────────────────────────────────────────────────────────
 
     def multi_hop_paths(self, start_ids: List[str], max_hops: int = 3,
-                        top_k: int = 10, max_visited_per_start: int = 30) -> List[List[dict]]:
+                        top_k: int = 10, max_visited_per_start: int = 30,
+                        min_confidence_tier: str = "INFERRED") -> List[List[dict]]:
         """
         BFS multi-hop traversal from start nodes.
         Returns top-k paths by average edge confidence.
         max_visited_per_start caps BFS expansion per seed to avoid blowing up on dense graphs.
+        min_confidence_tier filters out edges below the given tier (default: skip AMBIGUOUS).
+          Use "EXTRACTED" for maximum precision, "AMBIGUOUS" to include all edges.
         """
         from collections import deque
 
+        tier_floor = _TIER_ORDER.get(min_confidence_tier, 1)
         all_paths: List[tuple] = []
         seen_edge_sets: set = set()
 
@@ -241,6 +248,9 @@ class GraphStore:
                         "predicate": "related_to", "confidence": 0.5,
                         "confidence_tier": "AMBIGUOUS",
                     }
+                    # Skip edges that fall below the minimum confidence tier
+                    if _TIER_ORDER.get(edge.get("confidence_tier", "AMBIGUOUS"), 1) < tier_floor:
+                        continue
                     hop = {
                         "from": {"id": node,     **self.G.nodes.get(node,     {})},
                         "edge": edge,

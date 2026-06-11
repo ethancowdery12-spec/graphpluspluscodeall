@@ -2,15 +2,28 @@
 Multi-hop Query Engine
 Intent classification → Semantic node matching → Graph traversal → Context fusion → Generation
 """
+import re
 import time
 import json
 import asyncio
+from collections import OrderedDict
 from typing import List, Optional
 from .llm import call_llm
 from .graph_builder import get_graph
 from .embedder import embed_query, search_index
 from .chunk_store import get_chunk_store
 from .reranker import rerank
+
+# ── Query result LRU cache ─────────────────────────────────────────────────────
+_query_cache: OrderedDict = OrderedDict()
+_QUERY_CACHE_MAX = 100
+
+def _cache_result(key: str, result: dict) -> None:
+    """Store *result* in the LRU cache, evicting the oldest entry when full."""
+    _query_cache[key] = result
+    _query_cache.move_to_end(key)
+    while len(_query_cache) > _QUERY_CACHE_MAX:
+        _query_cache.popitem(last=False)
 
 RAG_FUSION_SYSTEM = (
     "You are a query rewriter. Given a question, output exactly 3 alternative "
@@ -111,6 +124,12 @@ async def query(question: str, on_step=None, on_token=None) -> dict:
     t0 = time.time()
     steps = []
 
+    # ── Cache check ──────────────────────────────────────────────────────────
+    _ck = question.strip().lower()
+    if _ck in _query_cache:
+        _query_cache.move_to_end(_ck)
+        return _query_cache[_ck]
+
     async def _emit(step_name: str, step_data: dict):
         if on_step:
             try:
@@ -119,147 +138,208 @@ async def query(question: str, on_step=None, on_token=None) -> dict:
                 pass  # never let broadcast errors kill the pipeline
 
     # ── Step 1: Intent Classification ─────────────────────────────────────────
-    # Cap at 80 tokens — the response is a one-line JSON object. A 256-token
-    # cap with no JSON-end stop sequence caused the previous 38s blow-up.
-    intent_result = await call_llm(
-        question, system=INTENT_SYSTEM, max_tokens=80,
-        # Stop the moment the JSON closes — prevents the model from rambling
-        # past the closing brace and burning the full token budget.
-        extra_stop=["}\n", "}\r\n", "\n\n", "###"],
-    )
-    intent_data = _parse_intent(intent_result["answer"])
-    # Always backfill entities from the question itself — the small fine-tuned
-    # model often returns entities=[] even when "RAG", "BERT" etc. are in the query.
+    # Try the rule-based pre-classifier first — zero LLM cost for clear-cut cases.
+    intent_data = _classify_intent_rules(question)
+    intent_src  = "rules"
+    intent_thinking = ""
+    if intent_data is None:
+        # Ambiguous query: fall back to LLM.  Cap at 80 tokens — the response
+        # is a one-line JSON object.
+        intent_result = await call_llm(
+            question, system=INTENT_SYSTEM, max_tokens=80,
+            extra_stop=["}\n", "}\r\n", "\n\n", "###"],
+        )
+        intent_data     = _parse_intent(intent_result["answer"])
+        intent_src      = "llm"
+        intent_thinking = intent_result.get("thinking", "")
+
     if not intent_data.get("entities"):
         intent_data["entities"] = _extract_entities_heuristic(question)
+
     s1 = {
         "step": "intent_classification",
         "label": "Intent Parser",
         "icon": "🧠",
-        "result": intent_data,
-        "thinking": intent_result.get("thinking", ""),
+        "result": {**intent_data, "source": intent_src},
+        "thinking": intent_thinking,
         "ms": int((time.time() - t0) * 1000),
     }
     steps.append(s1)
     await _emit("intent_classification", s1)
     t1 = time.time()
 
-    # ── RAG-Fusion (multi-hop / comparative queries only) ─────────────────────
-    # Generate 3 query variants and retrieve candidates for each variant, then
-    # RRF-merge all candidate lists with the original query's results.
-    # Skipped for factual queries to avoid unnecessary LLM + retrieval overhead.
     intent = intent_data.get("intent", "factual")
-    fusion_queries: List[str] = [question]  # always include original
-
-    if intent in ("multi-hop", "comparative"):
-        try:
-            variant_result = await call_llm(
-                question, system=RAG_FUSION_SYSTEM,
-                max_tokens=120, extra_stop=["\n\n", "###"],
-            )
-            raw_variants = variant_result.get("answer", "")
-            parsed = [
-                line.strip().lstrip("0123456789.-) ")
-                for line in raw_variants.splitlines()
-                if line.strip() and len(line.strip()) > 10
-            ]
-            fusion_queries.extend(parsed[:3])
-        except Exception:
-            pass  # if variant generation fails, fall back to original query only
-
-    # ── Step 2: Semantic Node Matching ─────────────────────────────────────────
-    # Embed the query ONCE; reuse the same vector for both node search (Step 2)
-    # and passage search (Step 3) so we pay the embedding cost only once.
-    query_embedding = await embed_query(question)
-    semantic_hits = search_index(query_embedding, k=10)
-
-    # Also match by entity names from intent
-    start_nodes = [nid for nid, _ in semantic_hits[:5]]
-    for entity in intent_data.get("entities", []):
-        matched = graph.find_nodes_by_name(entity)
-        start_nodes.extend(matched[:2])
-    start_nodes = list(dict.fromkeys(start_nodes))[:5]  # unique, max 5
-
-    s2 = {
-        "step": "node_matching",
-        "label": "Entity Resolver",
-        "icon": "🔍",
-        "result": {
-            "matched_nodes": len(start_nodes),
-            "semantic_hits": len(semantic_hits),
-            "start_nodes": start_nodes[:4],
-        },
-        "ms": int((time.time() - t1) * 1000),
-    }
-    steps.append(s2)
-    await _emit("node_matching", s2)
-    t2 = time.time()
-
-    # ── Step 3: Passage Retrieval (hybrid BM25+cosine+RRF, optionally fused) ───
-    # For multi-hop/comparative queries: embed all fusion variants in parallel,
-    # run hybrid_search for each, then RRF-merge all candidate lists.
-    # For factual queries: single hybrid_search on the original query only.
     chunk_store = get_chunk_store()
 
-    if len(fusion_queries) > 1:
-        # Parallel embed all variant queries
-        variant_embeddings = await asyncio.gather(
-            *[embed_query(q) for q in fusion_queries]
-        )
-        # Parallel hybrid search for each variant
-        variant_hits_lists = await asyncio.gather(
-            *[
-                asyncio.to_thread(chunk_store.hybrid_search, q, emb, 20)
-                for q, emb in zip(fusion_queries, variant_embeddings)
-            ]
-        )
-        # RRF-merge all candidate lists across queries
-        raw_hits = _rag_fusion_merge(variant_hits_lists, top_k=20)
+    # ── BM25 / exact-phrase fast path (factual queries only) ──────────────────
+    # For factual queries, check if BM25 gives a high-confidence single-document
+    # match or if the query contains a quoted phrase.  If so, skip embedding,
+    # RAG-Fusion, reranking, and graph traversal entirely — go straight to
+    # context fusion with the single hit.
+    fast_path_hit: Optional[dict] = None
+    if intent == "factual" and len(chunk_store) > 0:
+        quoted = re.search(r'[""][^""]{5,}[""]', question)
+        if quoted:
+            exact_hits = chunk_store.exact_phrase_search(quoted.group(0).strip('"""'))
+            if exact_hits:
+                fast_path_hit = {**exact_hits[0], "score": 1.0, "fp_method": "exact_phrase"}
+        if fast_path_hit is None:
+            bm25_hit = chunk_store.bm25_fast_path(question)
+            if bm25_hit:
+                fast_path_hit = {**bm25_hit,
+                                 "score": bm25_hit.get("bm25_score", 0.0),
+                                 "fp_method": "bm25_z"}
+
+    if fast_path_hit:
+        passage_hits  = [fast_path_hit]
+        paths         = []
+        query_embedding = None
+        s_fp = {
+            "step":   "bm25_fast_path",
+            "label":  "BM25 Fast Path",
+            "icon":   "⚡",
+            "result": {
+                "method": fast_path_hit.get("fp_method"),
+                "source": fast_path_hit.get("source"),
+                "score":  round(fast_path_hit.get("score", 0.0), 3),
+                "z":      fast_path_hit.get("bm25_z"),
+            },
+            "ms": int((time.time() - t1) * 1000),
+        }
+        steps.append(s_fp)
+        await _emit("bm25_fast_path", s_fp)
+        start_nodes: List[str] = []
     else:
-        raw_hits = chunk_store.hybrid_search(question, query_embedding, top_k=20)
+        # ── RAG-Fusion (multi-hop / comparative queries only) ──────────────────
+        fusion_queries: List[str] = [question]
+        if intent in ("multi-hop", "comparative"):
+            try:
+                variant_result = await call_llm(
+                    question, system=RAG_FUSION_SYSTEM,
+                    max_tokens=120, extra_stop=["\n\n", "###"],
+                )
+                raw_variants = variant_result.get("answer", "")
+                parsed = [
+                    line.strip().lstrip("0123456789.-) ")
+                    for line in raw_variants.splitlines()
+                    if line.strip() and len(line.strip()) > 10
+                ]
+                fusion_queries.extend(parsed[:3])
+            except Exception:
+                pass
 
-    passage_hits = await rerank(question, raw_hits, top_k=5)
+        # ── Step 2: Semantic Node Matching ──────────────────────────────────────
+        # Embed once; reuse for node search AND passage search.
+        query_embedding = await embed_query(question)
 
-    s3 = {
-        "step": "passage_retrieval",
-        "label": "Hybrid Retrieval + Rerank",
-        "icon": "📄",
-        "result": {
-            "passages_found":          len(passage_hits),
-            "chunk_store_size":        len(chunk_store),
-            "candidates_before_rerank": len(raw_hits),
-            "fusion_queries":          len(fusion_queries),
-            "top_score":               round(passage_hits[0].get("rrf_score", passage_hits[0].get("score", 0)), 3) if passage_hits else 0,
-        },
-        "ms": int((time.time() - t2) * 1000),
-    }
-    steps.append(s3)
-    await _emit("passage_retrieval", s3)
-    t3 = time.time()
+        # ── Not-in-corpus early exit ─────────────────────────────────────────────
+        # If neither BM25 nor cosine finds relevant content AND the graph has no
+        # matching entities, the question is out-of-domain — return before any
+        # further LLM calls.
+        graph_has_match = any(
+            graph.find_nodes_by_name(e)
+            for e in intent_data.get("entities", [])
+        )
+        if not chunk_store.has_relevant_content(question, query_embedding) and not graph_has_match:
+            result = {
+                "question":   question,
+                "answer":     "I don't have relevant information about this topic in the current knowledge base. Try ingesting documents on this topic first.",
+                "thinking":   "No relevant content found in chunk store or knowledge graph — returning early to avoid hallucination.",
+                "intent":     intent_data,
+                "steps":      steps,
+                "paths":      [],
+                "passages":   [],
+                "total_ms":   int((time.time() - t0) * 1000),
+                "source":     "no_content",
+                "provenance": [],
+                "critique":   {},
+            }
+            _cache_result(_ck, result)
+            return result
 
-    # ── Step 4: Multi-hop Graph Traversal ─────────────────────────────────────
-    max_hops = 3 if intent == "multi-hop" else 2
-    paths = graph.multi_hop_paths(start_nodes, max_hops=max_hops, top_k=8)
+        semantic_hits = search_index(query_embedding, k=10)
 
-    s4 = {
-        "step": "graph_traversal",
-        "label": "Multi-hop Traversal",
-        "icon": "🕸️",
-        "result": {
-            "paths_found": len(paths),
-            "max_hops": max_hops,
-            "intent": intent,
-        },
-        "paths": paths,
-        "ms": int((time.time() - t3) * 1000),
-    }
-    steps.append(s4)
-    await _emit("graph_traversal", s4)
+        start_nodes = [nid for nid, _ in semantic_hits[:5]]
+        for entity in intent_data.get("entities", []):
+            matched = graph.find_nodes_by_name(entity)
+            start_nodes.extend(matched[:2])
+        start_nodes = list(dict.fromkeys(start_nodes))[:5]
+
+        s2 = {
+            "step": "node_matching",
+            "label": "Entity Resolver",
+            "icon": "🔍",
+            "result": {
+                "matched_nodes": len(start_nodes),
+                "semantic_hits": len(semantic_hits),
+                "start_nodes": start_nodes[:4],
+            },
+            "ms": int((time.time() - t1) * 1000),
+        }
+        steps.append(s2)
+        await _emit("node_matching", s2)
+        t2 = time.time()
+
+        # ── Step 3: Passage Retrieval ──────────────────────────────────────────
+        if len(fusion_queries) > 1:
+            variant_embeddings = await asyncio.gather(
+                *[embed_query(q) for q in fusion_queries]
+            )
+            variant_hits_lists = await asyncio.gather(
+                *[
+                    asyncio.to_thread(chunk_store.hybrid_search, q, emb, 20)
+                    for q, emb in zip(fusion_queries, variant_embeddings)
+                ]
+            )
+            raw_hits = _rag_fusion_merge(variant_hits_lists, top_k=20)
+        else:
+            raw_hits = chunk_store.hybrid_search(question, query_embedding, top_k=20)
+
+        passage_hits = await rerank(question, raw_hits, top_k=5)
+
+        s3 = {
+            "step": "passage_retrieval",
+            "label": "Hybrid Retrieval + Rerank",
+            "icon": "📄",
+            "result": {
+                "passages_found":           len(passage_hits),
+                "chunk_store_size":         len(chunk_store),
+                "candidates_before_rerank": len(raw_hits),
+                "fusion_queries":           len(fusion_queries),
+                "top_score":                round(passage_hits[0].get("rrf_score", passage_hits[0].get("score", 0)), 3) if passage_hits else 0,
+            },
+            "ms": int((time.time() - t2) * 1000),
+        }
+        steps.append(s3)
+        await _emit("passage_retrieval", s3)
+        t3 = time.time()
+
+        # ── Step 4: Multi-hop Graph Traversal ─────────────────────────────────
+        max_hops = 3 if intent == "multi-hop" else 2
+        paths = graph.multi_hop_paths(start_nodes, max_hops=max_hops, top_k=8,
+                                      min_confidence_tier="INFERRED")
+
+        s4 = {
+            "step": "graph_traversal",
+            "label": "Multi-hop Traversal",
+            "icon": "🕸️",
+            "result": {
+                "paths_found": len(paths),
+                "max_hops":    max_hops,
+                "intent":      intent,
+            },
+            "paths": paths,
+            "ms": int((time.time() - t3) * 1000),
+        }
+        steps.append(s4)
+        await _emit("graph_traversal", s4)
+
     t4 = time.time()
 
     # ── Step 5: Context Fusion ─────────────────────────────────────────────────
     path_text    = _paths_to_text(paths)
-    passage_text = _passages_to_text(passage_hits)
+    passage_text = _passages_to_text(passage_hits)        # compact; used for critique/corruption
+    passage_text_gen = _fill_context_budget(passage_hits) # budget-aware; used for generation
 
     s5 = {
         "step": "context_fusion",
@@ -285,23 +365,23 @@ async def query(question: str, on_step=None, on_token=None) -> dict:
     # The question goes in the instruction, context goes in the input.
     # This prevents the model from pattern-matching on passage headers and
     # copying them verbatim as its response.
-    if path_text and passage_text:
+    if path_text and passage_text_gen:
         gen_instruction = (
             f"Answer this question accurately in 2-3 paragraphs, "
             f"based on the source passages and graph relationships below. "
             f"Question: {question}"
         )
         gen_input = (
-            f"Source passages:\n{passage_text[:2000]}\n\n"
+            f"Source passages:\n{passage_text_gen}\n\n"
             f"Graph relationships:\n{path_text[:800]}"
         )
-    elif passage_text:
+    elif passage_text_gen:
         gen_instruction = (
             f"Answer this question accurately in 2-3 paragraphs, "
             f"based on the source passages below. "
             f"Question: {question}"
         )
-        gen_input = f"Source passages:\n{passage_text[:3000]}"
+        gen_input = f"Source passages:\n{passage_text_gen}"
     elif path_text:
         gen_instruction = (
             f"Answer this question accurately in 2-3 paragraphs, "
@@ -367,11 +447,11 @@ async def query(question: str, on_step=None, on_token=None) -> dict:
             )[:4000]  # hard cap so it stays readable
 
             # ── Quote-continuation trim ────────────────────────────────────
-            # For “Continue this section: [quote]” queries the stitched block
+            # For "Continue this section: [quote]" queries the stitched block
             # typically includes content BEFORE the quoted text as well as
             # the continuation the user wants.
             # Strategy: extract the last 3-5 WORDS from the query (after
-            # stripping the “Continue…:” prefix), then find that phrase in
+            # stripping the "Continue…:" prefix), then find that phrase in
             # the stitched text using whitespace-flexible matching.  Starting
             # from just after the last matched word gives a clean continuation.
             import re as _re2
@@ -475,12 +555,16 @@ async def query(question: str, on_step=None, on_token=None) -> dict:
     # is nothing to critique.  Also skip when passage_text is empty, since the
     # critique prompt would have no grounding context to evaluate against.
     critique: dict = {}
-    if not llm_is_fake and passage_text and not gen_result.get("source", "").endswith("+fallback"):
+    # Skip critique when: LLM wasn't used, no passage context, already fallback,
+    # or we took the BM25 fast path (already high-confidence exact match).
+    if (not fast_path_hit and not llm_is_fake and passage_text
+            and not gen_result.get("source", "").endswith("+fallback")):
         critique = await _self_critique(question, gen_result["answer"], passage_text)
 
-        # Refinement: if groundedness is very low, re-generate with a
-        # passage-only prompt that forces the model to cite what it read.
-        if critique.get("groundedness", 1.0) < 0.4:
+        # Refinement: re-generate when groundedness is below threshold.
+        # Raised from 0.4 → 0.65 to catch more low-quality answers while
+        # still avoiding unnecessary LLM calls for acceptable responses.
+        if critique.get("groundedness", 1.0) < 0.65:
             refine_instruction = (
                 f"The previous answer was not well grounded in the source passages. "
                 f"Rewrite it using only what the passages explicitly state. "
@@ -513,7 +597,7 @@ async def query(question: str, on_step=None, on_token=None) -> dict:
 
     total_ms = int((time.time() - t0) * 1000)
 
-    return {
+    result = {
         "question":  question,
         "answer":    gen_result["answer"],
         "thinking":  gen_result.get("thinking", ""),
@@ -530,6 +614,8 @@ async def query(question: str, on_step=None, on_token=None) -> dict:
         "provenance": _build_provenance(paths),
         "critique":  critique,
     }
+    _cache_result(_ck, result)
+    return result
 
 
 # Question stop-words we never want as "entities" even if capitalized at sentence start
@@ -574,6 +660,54 @@ def _extract_entities_heuristic(question: str) -> List[str]:
             seen.add(clean.upper())
 
     return found[:6]  # cap at 6 entities
+
+
+def _classify_intent_rules(question: str) -> Optional[dict]:
+    """Rule-based intent classification — zero LLM cost.
+
+    Handles the clear-cut cases (~80% of real queries):
+    continuation, quoted-phrase lookup, simple WH-factual, comparative, causal multi-hop.
+    Returns None when the query is ambiguous and the LLM should decide.
+    """
+    q = question.lower().strip()
+
+    # Continuation queries are always factual exact-match retrievals
+    if re.match(r'^(?:continue|what comes after|what follows|finish this)\b', q):
+        return {"intent": "factual", "entities": [], "confidence": 0.95, "rule": "continuation"}
+
+    # Quoted phrase → factual verbatim lookup
+    if re.search(r'[""][^""]{5,}[""]', question):
+        return {"intent": "factual", "entities": _extract_entities_heuristic(question),
+                "confidence": 0.90, "rule": "quoted_phrase"}
+
+    # Comparative — check BEFORE simple WH-factual so that
+    # "What is the difference between X and Y?" routes correctly.
+    if re.search(r'\b(?:compare|versus|vs\.?)\b|\bdifference between\b'
+                 r'|\bbetter than\b|\bworse than\b', q):
+        return {"intent": "comparative", "entities": _extract_entities_heuristic(question),
+                "confidence": 0.85, "rule": "comparative_kw"}
+
+    # Multi-hop — causal / relational (also before simple WH-factual)
+    if re.search(r'\b(?:how does|how did|why does|why did'
+                 r'|what caused|what led to|relationship between'
+                 r'|impact of|effect of)\b', q):
+        return {"intent": "multi-hop", "entities": _extract_entities_heuristic(question),
+                "confidence": 0.85, "rule": "multihop_kw"}
+
+    # Clear factual WH-questions (simple, after comparative/multi-hop checks)
+    factual_pats = [
+        r'^(?:what is|what are|what was|what were|what does|what did)\b',
+        r'^(?:who is|who are|who was|who were)\b',
+        r'^(?:when did|when was|when is)\b',
+        r'^(?:where is|where was|where does)\b',
+        r'^define\b',
+    ]
+    for pat in factual_pats:
+        if re.match(pat, q):
+            return {"intent": "factual", "entities": _extract_entities_heuristic(question),
+                    "confidence": 0.85, "rule": "wh_factual"}
+
+    return None  # uncertain — fall through to LLM
 
 
 def _parse_intent(text: str) -> dict:
@@ -720,6 +854,37 @@ def _answer_is_corrupted(
         if instruction and lead in instruction.lower()[:400]:
             return True
     return False
+
+
+_CHARS_PER_TOKEN = 4  # rough approximation used for budget calculations
+
+
+def _fill_context_budget(passage_hits: List[dict],
+                          token_budget: int = 1500,
+                          max_per_passage: int = 800) -> str:
+    """Build a passage context string that fills *token_budget* tokens.
+
+    Unlike the fixed-400-char-per-passage approach in _passages_to_text, this
+    allocates the full remaining budget to each passage in relevance order,
+    capped at max_per_passage chars per entry.  Higher-ranked passages therefore
+    get more context when the budget allows it.
+    """
+    char_budget = token_budget * _CHARS_PER_TOKEN
+    parts: List[str] = []
+    used = 0
+    for h in passage_hits:
+        src  = h.get("source", "unknown")
+        page = h.get("page", 0)
+        loc  = f"p.{page}" if page else ""
+        header = f"[{src}{(' ' + loc) if loc else ''}]\n"
+        body   = _clean_passage_text(h["text"])
+        available = min(char_budget - used, max_per_passage) - len(header)
+        if available <= 50:
+            break
+        body_trimmed = body[:available]
+        parts.append(header + body_trimmed)
+        used += len(header) + len(body_trimmed)
+    return "\n\n".join(parts)
 
 
 def _passages_to_text(hits: List[dict]) -> str:

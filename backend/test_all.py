@@ -406,7 +406,186 @@ else:
     check('ingest_triples: method exists', False, 'method not found on GraphStore')
 
 # ─────────────────────────────────────────────────────────────────────────────
-print(f'\n{"="*60}')
-print(f'  FINAL RESULTS: {PASS} PASS   {FAIL} FAIL')
-print(f'{"="*60}\n')
-sys.exit(0 if FAIL == 0 else 1)
+section('13. CHUNK STORE — exact_phrase_search')
+# ─────────────────────────────────────────────────────────────────────────────
+from pipeline.chunk_store import ChunkStore as CS13
+
+cs13 = CS13()
+cs13._chunks = [
+    {"id": "p1", "text": "The transformer architecture revolutionized NLP tasks.", "source": "paper.pdf", "page": 1, "embedding": [0.1]*8},
+    {"id": "p2", "text": "BERT uses bidirectional encoder representations.", "source": "paper.pdf", "page": 2, "embedding": [0.2]*8},
+    {"id": "p3", "text": "Attention is all you need for sequence modelling.", "source": "paper.pdf", "page": 3, "embedding": [0.3]*8},
+]
+hits13 = cs13.exact_phrase_search("bidirectional encoder")
+check('exact phrase returns matching chunk', len(hits13) == 1)
+check('exact phrase correct id', hits13[0]["id"] == "p2" if hits13 else False)
+check('no false positives', len(cs13.exact_phrase_search("quantum entanglement")) == 0)
+check('exact phrase case-insensitive', len(cs13.exact_phrase_search("BIDIRECTIONAL ENCODER")) == 1)
+check('empty phrase returns empty', len(cs13.exact_phrase_search("")) == 0)
+
+# ─────────────────────────────────────────────────────────────────────────────
+section('14. CHUNK STORE — bm25_fast_path')
+# ─────────────────────────────────────────────────────────────────────────────
+from pipeline.chunk_store import ChunkStore as CS14
+
+cs14 = CS14()
+generic = [f"Random filler text about unrelated topic {i}." for i in range(25)]
+specific = "The PageRank algorithm assigns importance scores to nodes based on the number and quality of incoming links."
+cs14._chunks = [
+    {"id": f"q{i}", "text": t, "source": "s.txt", "page": i, "embedding": [0.1]*8}
+    for i, t in enumerate(generic + [specific])
+]
+cs14._bm25_dirty = True
+
+hit14 = cs14.bm25_fast_path("PageRank algorithm node scoring links")
+check('bm25 fast path fires on high-confidence match', hit14 is not None)
+check('bm25 fast path returns relevant chunk', hit14 is not None and "PageRank" in hit14.get("text", ""))
+check('bm25 fast path includes z-score', hit14 is not None and "bm25_z" in hit14)
+check('bm25 fast path z > 2.5', hit14 is not None and hit14.get("bm25_z", 0) >= 2.5)
+check('bm25 fast path skips ambiguous query', cs14.bm25_fast_path("filler topic") is None)
+
+# ─────────────────────────────────────────────────────────────────────────────
+section('15. QUERY ENGINE — rule-based intent classifier')
+# ─────────────────────────────────────────────────────────────────────────────
+from pipeline.query_engine import _classify_intent_rules
+
+check('factual: what is X', _classify_intent_rules("What is the transformer architecture?")["intent"] == "factual")
+check('factual: who is X', _classify_intent_rules("Who is Alan Turing?")["intent"] == "factual")
+check('factual: define X', _classify_intent_rules("define gradient descent")["intent"] == "factual")
+check('factual: when did', _classify_intent_rules("When did BERT get released?")["intent"] == "factual")
+check('factual: quoted phrase', _classify_intent_rules('What does "attention is all you need" mean?')["intent"] == "factual")
+check('factual: continuation', _classify_intent_rules("Continue this section: some quoted text here")["intent"] == "factual")
+check('comparative: compare X and Y', _classify_intent_rules("Compare BERT and GPT models")["intent"] == "comparative")
+check('comparative: difference between', _classify_intent_rules("What is the difference between RNN and LSTM?")["intent"] == "comparative")
+check('comparative: vs', _classify_intent_rules("BERT vs GPT performance")["intent"] == "comparative")
+check('multihop: how does X affect Y', _classify_intent_rules("How does attention mechanism affect performance?")["intent"] == "multi-hop")
+check('multihop: why does', _classify_intent_rules("Why does fine-tuning improve accuracy?")["intent"] == "multi-hop")
+check('multihop: what caused', _classify_intent_rules("What caused the overfitting in the model?")["intent"] == "multi-hop")
+check('uncertain returns None', _classify_intent_rules("Tell me about neural networks") is None)
+check('rule result has entities', isinstance(_classify_intent_rules("What is BERT?").get("entities"), list))
+
+# ─────────────────────────────────────────────────────────────────────────────
+section('16. QUERY ENGINE — LRU cache')
+# ─────────────────────────────────────────────────────────────────────────────
+import pipeline.query_engine as qe_mod
+from collections import OrderedDict as OD
+
+saved_cache = qe_mod._query_cache
+qe_mod._query_cache = OD()
+
+fake = {"question": "test", "answer": "cached answer", "steps": []}
+qe_mod._cache_result("test query", fake)
+
+check('cache stores entry', "test query" in qe_mod._query_cache)
+check('cache retrieves value', qe_mod._query_cache["test query"]["answer"] == "cached answer")
+check('cache is OrderedDict', isinstance(qe_mod._query_cache, OD))
+
+# Fill past max and verify eviction
+qe_mod._query_cache = OD()
+for i in range(qe_mod._QUERY_CACHE_MAX + 10):
+    qe_mod._cache_result(f"q{i}", {"answer": str(i)})
+check('cache does not exceed max size', len(qe_mod._query_cache) <= qe_mod._QUERY_CACHE_MAX)
+check('cache evicts oldest (LRU)', "q0" not in qe_mod._query_cache)
+check('cache retains newest', f"q{qe_mod._QUERY_CACHE_MAX + 9}" in qe_mod._query_cache)
+
+qe_mod._query_cache = saved_cache  # restore
+
+# ─────────────────────────────────────────────────────────────────────────────
+section('17. CHUNK STORE — has_relevant_content')
+# ─────────────────────────────────────────────────────────────────────────────
+from pipeline.chunk_store import ChunkStore as CS17
+
+cs17 = CS17()
+cs17._chunks = [
+    {"id": "r1", "text": "FAISS is a library for efficient vector similarity search.", "source": "docs.txt", "page": 1, "embedding": [0.1]*8},
+    {"id": "r2", "text": "Unrelated text about cooking recipes and food.", "source": "other.txt", "page": 1, "embedding": [0.2]*8},
+    {"id": "r3", "text": "Python programming language features dynamic typing.", "source": "lang.txt", "page": 1, "embedding": [0.3]*8},
+]
+cs17._bm25_dirty = True
+
+check('relevant content found via BM25', cs17.has_relevant_content("FAISS similarity search", [0.0]*8, bm25_min=0.1))
+check('empty store returns False', not CS17().has_relevant_content("anything", [0.0]*8))
+check('out-of-domain flagged with extreme thresholds',
+      not cs17.has_relevant_content("quantum entanglement", [0.0]*8, bm25_min=1e9, cosine_min=0.999))
+
+# ─────────────────────────────────────────────────────────────────────────────
+section('18. CHUNK STORE — cosine near-duplicate detection')
+# ─────────────────────────────────────────────────────────────────────────────
+from pipeline.chunk_store import ChunkStore as CS18
+
+cs18 = CS18()
+cs18._chunks = [
+    {"id": "d1", "text": "Self-attention uses queries, keys, and values.",
+     "source": "p.pdf", "page": 1,
+     "embedding": [1.0, 0.0, 0.0, 0.0]},
+]
+
+identical  = [1.0, 0.0, 0.0, 0.0]
+orthogonal = [0.0, 1.0, 0.0, 0.0]
+near_dup   = [0.999, 0.001, 0.0, 0.0]  # cosine ≈ 1.0
+
+check('identical embedding flagged as near-dup',  cs18._is_near_duplicate(identical))
+check('near-identical embedding flagged',          cs18._is_near_duplicate(near_dup))
+check('orthogonal embedding allowed through',      not cs18._is_near_duplicate(orthogonal))
+check('empty store returns False',                 not CS18()._is_near_duplicate(identical))
+
+# ─────────────────────────────────────────────────────────────────────────────
+section('19. GRAPH BUILDER — confidence tier filter in traversal')
+# ─────────────────────────────────────────────────────────────────────────────
+from pipeline.graph_builder import GraphStore as GS19
+import networkx as nx
+
+gs19 = GS19.__new__(GS19)
+gs19.G = nx.MultiDiGraph()
+gs19._entity_index = {}
+gs19._ingestion_log = []
+gs19._file_hashes = {}
+gs19._metrics = {'total_queries': 0, 'total_ingestions': 0, 'cache_hits': 0, 'avg_query_ms': 0}
+gs19._version = 0
+gs19._embeddings = {}
+
+for nid in ('A', 'B', 'C'):
+    gs19.G.add_node(nid, label=nid, type='concept', color='#00d4ff',
+                    pagerank=0.0, community=0, degree=0, size=6.0)
+
+gs19.G.add_edge('A', 'B', predicate='uses',       confidence=0.8, weight=0.8, confidence_tier='INFERRED')
+gs19.G.add_edge('B', 'C', predicate='maybe_uses', confidence=0.4, weight=0.4, confidence_tier='AMBIGUOUS')
+
+paths_all = gs19.multi_hop_paths(['A'], max_hops=3, top_k=10, min_confidence_tier='AMBIGUOUS')
+paths_filt = gs19.multi_hop_paths(['A'], max_hops=3, top_k=10, min_confidence_tier='INFERRED')
+
+check('unfiltered traversal reaches C via AMBIGUOUS edge',
+      any(any(h['to']['id'] == 'C' for h in p) for p in paths_all))
+check('filtered traversal stops at INFERRED boundary (no C)',
+      not any(any(h['to']['id'] == 'C' for h in p) for p in paths_filt))
+check('filtered traversal still reaches B via INFERRED edge',
+      any(any(h['to']['id'] == 'B' for h in p) for p in paths_filt))
+
+# ─────────────────────────────────────────────────────────────────────────────
+section('20. QUERY ENGINE — token-aware context budget (_fill_context_budget)')
+# ─────────────────────────────────────────────────────────────────────────────
+from pipeline.query_engine import _fill_context_budget
+
+fake_passages = [
+    {"text": "A" * 1000, "source": "doc1.pdf", "page": 1},
+    {"text": "B" * 1000, "source": "doc2.pdf", "page": 2},
+    {"text": "C" * 1000, "source": "doc3.pdf", "page": 3},
+]
+
+result20_small = _fill_context_budget(fake_passages, token_budget=300)   # ~1200 chars
+result20_large = _fill_context_budget(fake_passages, token_budget=2000)  # ~8000 chars
+
+check('small budget respected (approx chars <= budget*4 + headers)',
+      len(result20_small) <= 300 * 4 + 200)
+check('small budget includes first passage', "doc1.pdf" in result20_small)
+check('large budget includes all three passages',
+      all(f"doc{i}.pdf" in result20_large for i in (1, 2, 3)))
+check('empty passages returns empty string', _fill_context_budget([]) == "")
+check('result is a string', isinstance(result20_small, str))
+
+# ─────────────────────────────────────────────────────────────────────────────
+if __name__ == '__main__':
+    print(f'\n{"="*60}')
+    print(f'  FINAL RESULTS: {PASS} PASS   {FAIL} FAIL')
+    print(f'{"="*60}\n')
+    sys.exit(0 if FAIL == 0 else 1)
